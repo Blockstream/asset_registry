@@ -42,21 +42,22 @@ fn get(id: String, registry: State<AssetRegistry>) -> Result<Option<JsonValue>> 
 }
 
 #[post("/", format = "application/json", data = "<asset>")]
-fn write(asset: Json<Asset>, signature: ReqSig, registry: State<AssetRegistry>) -> Result<()> {
-    // TODO verify asset_id, issuance_txid, associated contract_hash and wrapped issuer_pubkey
-    // TODO check signature
-    // TODO verify online entity link
+fn update(asset: Json<Asset>, signature: ReqSig, registry: State<AssetRegistry>) -> Result<()> {
     debug!("write asset: {:?},\nsignature: {}", asset, signature.0);
-    registry.write(asset.into_inner())
+
+    let asset = asset.into_inner();
+    registry.verify(&asset, &signature.0)?;
+    registry.write(asset)
 }
 
 fn main() {
+    // TODO make path configurable
     let registry = AssetRegistry::load(&Path::new("./db")).expect("failed initializing assets db");
 
     info!("Registry: {:?}", registry);
 
     rocket::ignite()
         .manage(registry)
-        .mount("/", routes![list, get, write])
+        .mount("/", routes![list, get, update])
         .launch();
 }

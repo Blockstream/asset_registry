@@ -5,7 +5,8 @@ use std::sync::RwLock;
 //use std::str::FromStr;
 
 use bitcoin_hashes::{hex::FromHex, hex::ToHex, sha256d, Hash};
-//use secp256k1::PublicKey;
+use secp256k1::PublicKey;
+use serde_json::Value;
 //use serde::{de, ser, Serializer, Deserializer};
 
 use crate::errors::{OptionExt, Result};
@@ -117,4 +118,40 @@ impl AssetRegistry {
         assets.insert(asset.asset_id, asset);
         Ok(())
     }
+
+    pub fn verify(&self, asset: &Asset, signature: &str) -> Result<()> {
+        // TODO verify asset_id, issuance_txid, associated contract_hash and wrapped issuer_pubkey
+        // TODO verify H(contract) is committed to in the asset entropy
+        // TODO verify online entity link
+        verify_asset_data_sig(asset, signature)
+    }
+}
+
+fn verify_asset_data_sig(asset: &Asset, signature: &str) -> Result<()> {
+    let contract: Value = serde_json::from_str(&asset.contract)?;
+
+    let pubkey = contract["issuer_pubkey"].as_str().or_err("missing required contract.issuer_pubkey")?;
+    let pubkey = hex::decode(pubkey)?;
+    let pubkey = PublicKey::from_slice(&pubkey)?;
+
+    let msg = hash_for_sig(asset)?;
+    let msg = secp256k1::Message::from_slice(&msg.into_inner())?;
+
+    let signature = base64::decode(&signature)?;
+    let signature = secp256k1::Signature::from_compact(&signature)?;
+
+    Ok(secp256k1::Secp256k1::verification_only().verify(&msg, &signature, &pubkey)?)
+}
+
+fn hash_for_sig(asset: &Asset) -> Result<sha256d::Hash> {
+    let data = serde_json::to_string(&(
+        "elements-asset-assoc",
+        &asset.asset_id,
+        &asset.name,
+        &asset.ticker,
+        &asset.precision,
+        &asset.entity_type,
+        &asset.entity_identifier,
+    ))?;
+    Ok(sha256d::Hash::from_slice(data.as_bytes())?)
 }

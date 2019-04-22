@@ -15,6 +15,7 @@ serde_json = "1.0"
 log = "0.4.5"
 stderrlog = "0.4.1"
 secp256k1 = "0.12.2"
+base64 = "0.10.1"
 
 [dependencies.rocket_contrib]
 version = "0.4.0"
