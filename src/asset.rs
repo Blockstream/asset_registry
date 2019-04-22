@@ -4,7 +4,7 @@ use std::path;
 use std::sync::RwLock;
 //use std::str::FromStr;
 
-use bitcoin_hashes::{hex::FromHex, hex::ToHex, sha256d, Hash};
+use bitcoin_hashes::{hex::ToHex, sha256d, Hash};
 use secp256k1::PublicKey;
 use serde_json::Value;
 //use serde::{de, ser, Serializer, Deserializer};
