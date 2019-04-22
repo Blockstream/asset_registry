@@ -8,7 +8,7 @@ use bitcoin_hashes::{hex::FromHex, hex::ToHex, sha256d, Hash};
 //use secp256k1::PublicKey;
 //use serde::{de, ser, Serializer, Deserializer};
 
-use crate::errors::{OptionExt, Result as EResult};
+use crate::errors::{OptionExt, Result};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum AssetEntity {
@@ -65,7 +65,7 @@ impl Asset {
         }
     }
 
-    pub fn load(path: path::PathBuf) -> EResult<Asset> {
+    pub fn load(path: path::PathBuf) -> Result<Asset> {
         let contents = fs::read_to_string(path)?;
         Ok(serde_json::from_str(&contents)?)
     }
@@ -82,7 +82,7 @@ pub struct AssetRegistry {
 }
 
 impl AssetRegistry {
-    pub fn load(directory: &path::Path) -> EResult<AssetRegistry> {
+    pub fn load(directory: &path::Path) -> Result<AssetRegistry> {
         let files = fs::read_dir(&directory)?;
         let assets_map = files
             .map(|entry| {
@@ -91,7 +91,7 @@ impl AssetRegistry {
                 let asset = Asset::load(entry.path())?;
                 Ok((asset_id, asset))
             })
-            .collect::<EResult<HashMap<sha256d::Hash, Asset>>>()?;
+            .collect::<Result<HashMap<sha256d::Hash, Asset>>>()?;
 
         Ok(AssetRegistry {
             directory: directory.to_path_buf(),
@@ -109,7 +109,7 @@ impl AssetRegistry {
         assets.get(asset_id).cloned() // TODO avoid clone
     }
 
-    pub fn write(&self, asset: Asset) -> EResult<()> {
+    pub fn write(&self, asset: Asset) -> Result<()> {
         let mut assets = self.assets_map.write().unwrap();
 
         let path = self.directory.join(asset.asset_id.to_hex());
