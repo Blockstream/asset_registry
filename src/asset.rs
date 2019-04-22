@@ -87,9 +87,8 @@ impl AssetRegistry {
         let assets_map = files
             .map(|entry| {
                 let entry = entry?;
-                let asset_id = sha256d::Hash::from_hex(entry.file_name().to_str().req()?)?;
                 let asset = Asset::load(entry.path())?;
-                Ok((asset_id, asset))
+                Ok((asset.asset_id, asset))
             })
             .collect::<Result<HashMap<sha256d::Hash, Asset>>>()?;
 
@@ -112,7 +111,7 @@ impl AssetRegistry {
     pub fn write(&self, asset: Asset) -> Result<()> {
         let mut assets = self.assets_map.write().unwrap();
 
-        let path = self.directory.join(asset.asset_id.to_hex());
+        let path = self.directory.join(format!("{}.json", asset.asset_id.to_hex()));
         fs::write(path, serde_json::to_string(&asset)?)?;
 
         assets.insert(asset.asset_id, asset);
