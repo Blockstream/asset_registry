@@ -1,10 +1,10 @@
-use std::path;
-use std::fs;
 use std::collections::HashMap;
+use std::fs;
+use std::path;
 use std::sync::RwLock;
 //use std::str::FromStr;
 
-use bitcoin_hashes::{sha256d, hex::FromHex, hex::ToHex};
+use bitcoin_hashes::{hex::FromHex, hex::ToHex, sha256d, Hash};
 //use secp256k1::PublicKey;
 //use serde::{de, ser, Serializer, Deserializer};
 
@@ -19,14 +19,13 @@ pub enum AssetEntity {
 pub struct Asset {
     asset_id: sha256d::Hash,
     issuance_txid: sha256d::Hash,
-
     contract: String,
-    name: String,
-    ticker: Option<String>,
-    precision: Option<u8>,
 
     //#[serde(serialize_with = "ser_pubkey", deserialize_with = "deser_pubkey")]
     //issuer_pubkey: PublicKey,
+    name: String,
+    ticker: Option<String>,
+    precision: Option<u8>,
 
     entity_type: AssetEntity,
     entity_identifier: String,
@@ -62,7 +61,7 @@ impl Asset {
             entity_type: AssetEntity::DomainName,
             entity_identifier: "foo.com".to_string(),
             entity_url: Some("https://foo.com/".to_string()),
-            entity_proof: Some("https://foo.com/.well-known/liquid-issuer.proof".to_string())
+            entity_proof: Some("https://foo.com/.well-known/liquid-issuer.proof".to_string()),
         }
     }
 
@@ -85,12 +84,14 @@ pub struct AssetRegistry {
 impl AssetRegistry {
     pub fn load(directory: &path::Path) -> EResult<AssetRegistry> {
         let files = fs::read_dir(&directory)?;
-        let assets_map = files.map(|entry| {
-            let entry = entry?;
-            let asset_id = sha256d::Hash::from_hex(entry.file_name().to_str().req()?)?;
-            let asset = Asset::load(entry.path())?;
-            Ok((asset_id, asset))
-        }).collect::<EResult<HashMap<sha256d::Hash, Asset>>>()?;
+        let assets_map = files
+            .map(|entry| {
+                let entry = entry?;
+                let asset_id = sha256d::Hash::from_hex(entry.file_name().to_str().req()?)?;
+                let asset = Asset::load(entry.path())?;
+                Ok((asset_id, asset))
+            })
+            .collect::<EResult<HashMap<sha256d::Hash, Asset>>>()?;
 
         Ok(AssetRegistry {
             directory: directory.to_path_buf(),

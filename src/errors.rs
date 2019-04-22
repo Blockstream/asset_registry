@@ -1,7 +1,7 @@
 use std::result::Result as StdResult;
 
 use core::fmt::Display;
-pub use failure::{Error, Context};
+pub use failure::{Context, Error};
 
 pub type Result<T> = StdResult<T, Error>;
 

@@ -2,19 +2,22 @@
 
 extern crate asset_registry;
 extern crate stderrlog;
-#[macro_use] extern crate log;
-#[macro_use] extern crate rocket;
-#[macro_use] extern crate rocket_contrib;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate rocket;
+#[macro_use]
+extern crate rocket_contrib;
 
 use std::path::Path;
 
-use bitcoin_hashes::{sha256d, hex::FromHex};
-use rocket::{State, Outcome, http::Status};
-use rocket::request::{self, Request, FromRequest};
+use bitcoin_hashes::{hex::FromHex, sha256d};
+use rocket::request::{self, FromRequest, Request};
+use rocket::{http::Status, Outcome, State};
 use rocket_contrib::json::{Json, JsonValue};
 
-use asset_registry::errors::{Result};
 use asset_registry::asset::{Asset, AssetRegistry};
+use asset_registry::errors::Result;
 
 struct ReqSig(String);
 impl<'a, 'r> FromRequest<'a, 'r> for ReqSig {
