@@ -1,5 +1,7 @@
 use bitcoin::consensus::encode::{serialize, VarInt};
+use bitcoin::util::hash::bitcoin_merkle_root;
 use bitcoin_hashes::{sha256d, Hash};
+use elements::OutPoint;
 use failure::ResultExt;
 use idna::uts46;
 use regex::RegexSet;
@@ -41,6 +43,22 @@ fn bitcoin_signed_msg_hash(msg: &str) -> sha256d::Hash {
         ]
         .concat(),
     )
+}
+
+// TODO PR into rust-elements
+pub fn get_asset_tag(entropy: &sha256d::Hash) -> sha256d::Hash {
+    sha256d::Hash::hash(&[entropy.into_inner(), [0u8; 32]].concat())
+    //bitcoin_merkle_root(vec![entropy.clone(), sha256d::Hash::default()])
+}
+
+pub fn get_asset_entropy(prevout: &OutPoint, contract_hash: &sha256d::Hash) -> sha256d::Hash {
+    // XXX should the outpoint be hashed with sha256 or double sha256?
+    // let prevout_hash = sha256::Hash::hash(&serialize(prevout));
+    // disguise the sha256::Hash as a sha256d::Hash, to make bitcoin_merkle_root accept it
+    // let prevout_hash = sha256d::Hash::from_slice(&prevout_hash.into_inner()).unwrap();
+
+    let prevout_hash = sha256d::Hash::hash(&serialize(prevout));
+    bitcoin_merkle_root(vec![prevout_hash, contract_hash.clone()])
 }
 
 // Domain name validation code extracted from https://github.com/rushmorem/publicsuffix/blob/master/src/lib.rs
@@ -113,6 +131,7 @@ fn idna_to_ascii(domain: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bitcoin_hashes::hex::{FromHex, ToHex};
 
     #[test]
     fn test_is_valid_domain() {
@@ -133,5 +152,53 @@ mod tests {
         verify_bitcoin_msg(&ec, &pubkey, &signature, &msg)?;
 
         Ok(())
+    }
+
+    #[test]
+    fn test_asset_entropy() -> Result<()> {
+        let prevout = OutPoint {
+            txid: sha256d::Hash::from_hex(
+                "0a93069bba360df60d77ecfff99304a9de123fecb8217348bb9d35f4a96d2fca",
+            )
+            .unwrap(),
+            vout: 0,
+        };
+        let contract_hash = sha256d::Hash::default();
+        let entropy = get_asset_entropy(&prevout, &contract_hash);
+        let asset_id = get_asset_tag(&entropy);
+
+        debug!(
+            "prevout {:?} + contract_hash {} --> entropy {}",
+            prevout,
+            contract_hash.to_hex(),
+            entropy.to_hex()
+        );
+        debug!("entropy = {}", entropy.to_hex());
+        debug!("asset_id = {}", asset_id.to_hex());
+
+        assert_eq!(
+            entropy.to_hex(),
+            "b8c4a6b3bb81c57e08b3c3b42d682ed287f492da6575fffd81d98893d74418b6"
+        );
+        assert_eq!(
+            asset_id.to_hex(),
+            "ff6fa9c92fd6086523e11607f6ee8ba90406ccaf738c49bf667ae5ec93733276"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_asset_id() {
+        let entropy = sha256d::Hash::from_hex(
+            "b8c4a6b3bb81c57e08b3c3b42d682ed287f492da6575fffd81d98893d74418b6",
+        )
+        .unwrap();
+        let asset_id = get_asset_tag(&entropy);
+        debug!("entropy {} --> asset_id {}", entropy, asset_id);
+        assert_eq!(
+            asset_id.to_hex(),
+            "ff6fa9c92fd6086523e11607f6ee8ba90406ccaf738c49bf667ae5ec93733276"
+        );
     }
 }

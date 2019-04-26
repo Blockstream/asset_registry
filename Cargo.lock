@@ -37,6 +37,7 @@ dependencies = [
  "base64-serde 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitcoin 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitcoin_hashes 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "elements 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "idna 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -333,6 +334,16 @@ dependencies = [
 name = "dtoa"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "elements"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "bitcoin 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bitcoin_hashes 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "secp256k1 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "encoding_rs"
@@ -1831,6 +1842,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum devise_codegen 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "066ceb7928ca93a9bedc6d0e612a8a0424048b0ab1f75971b203d01420c055d7"
 "checksum devise_core 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "cf41c59b22b5e3ec0ea55c7847e5f358d340f3a8d6d53a5cf4f1564967f96487"
 "checksum dtoa 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "6d301140eb411af13d3115f9a562c85cc6b541ade9dfa314132244aaee7489dd"
+"checksum elements 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "85910861357c87936770bbf5072ef3306e8f1921456ef87dc9ad2aa028c0cda4"
 "checksum encoding_rs 0.8.17 (registry+https://github.com/rust-lang/crates.io-index)" = "4155785c79f2f6701f185eb2e6b4caf0555ec03477cb4c70db67b465311620ed"
 "checksum error-chain 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)" = "07e791d3be96241c77c43846b665ef1384606da2cd2a48730abe606a12906e02"
 "checksum failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "795bd83d3abeb9220f257e597aa0080a508b27533824adf336529648f6abf7e2"
