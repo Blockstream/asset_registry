@@ -24,6 +24,7 @@ pub struct Asset {
     //issuer_pubkey: [u8; 33],
     name: String,
     ticker: Option<String>,
+    // TODO verify range
     precision: Option<u8>,
 
     entity: AssetEntity,
@@ -50,6 +51,10 @@ impl Asset {
 
     pub fn id(&self) -> &sha256d::Hash {
         &self.asset_id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
     pub fn entity(&self) -> &AssetEntity {
