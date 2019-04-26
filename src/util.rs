@@ -1,5 +1,47 @@
+use bitcoin::consensus::encode::{serialize, VarInt};
+use bitcoin_hashes::{sha256d, Hash};
+use failure::ResultExt;
 use idna::uts46;
 use regex::RegexSet;
+use secp256k1::Secp256k1;
+
+use crate::errors::Result;
+
+static MSG_SIGN_PREFIX: &'static [u8] = b"\x18Bitcoin Signed Message:\n";
+
+pub fn verify_bitcoin_msg(
+    ec: &Secp256k1<secp256k1::VerifyOnly>,
+    pubkey: &[u8],
+    signature: &[u8],
+    msg: &str,
+) -> Result<()> {
+    let signature = if signature.len() == 65 {
+        // Discard the flag byte, we assume compression and don't use recovery
+        &signature[1..65]
+    } else {
+        signature
+    };
+
+    let pubkey = secp256k1::PublicKey::from_slice(pubkey)?;
+    let signature = secp256k1::Signature::from_compact(&signature)?;
+    let msg_hash = bitcoin_signed_msg_hash(msg);
+    let msg_secp = secp256k1::Message::from_slice(&msg_hash.into_inner())?;
+
+    Ok(ec
+        .verify(&msg_secp, &signature, &pubkey)
+        .context("signature veritification failed")?)
+}
+
+fn bitcoin_signed_msg_hash(msg: &str) -> sha256d::Hash {
+    sha256d::Hash::hash(
+        &[
+            MSG_SIGN_PREFIX,
+            &serialize(&VarInt(msg.len() as u64)),
+            msg.as_bytes(),
+        ]
+        .concat(),
+    )
+}
 
 // Domain name validation code extracted from https://github.com/rushmorem/publicsuffix/blob/master/src/lib.rs
 // (MIT, Copyright (c) 2016 Rushmore Mushambi)
@@ -77,5 +119,19 @@ mod tests {
         assert!(is_valid_domain("foo.com"));
         assert!(!is_valid_domain(">foo.com"));
         assert!(is_valid_domain("δοκιμή.com"));
+    }
+
+    #[test]
+    fn test_bitcoin_msg_sign() -> Result<()> {
+        let ec = Secp256k1::verification_only();
+
+        let msg = "test";
+        let pubkey =
+            hex::decode("026be637f97bc191c27522577bd6fe284b54404321652fcc4eb62aa0f4cfd6d172")?;
+        let signature = base64::decode("H7719XlaZJT6H4HrD9KXga7yfd0MR8lSKc34TN/u0nhpecU9bVfaUDcpJtOFodfxf+IyFIE5V2A9878mM5bWvbE=")?;
+
+        verify_bitcoin_msg(&ec, &pubkey, &signature, &msg)?;
+
+        Ok(())
     }
 }

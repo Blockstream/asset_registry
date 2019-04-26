@@ -1,4 +1,5 @@
 extern crate base64;
+extern crate bitcoin;
 extern crate secp256k1;
 extern crate serde;
 #[macro_use]

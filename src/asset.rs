@@ -3,13 +3,14 @@ use std::fs;
 use std::path;
 use std::sync::RwLock;
 
-use bitcoin_hashes::{hex::ToHex, sha256d, Hash};
+use bitcoin_hashes::{hex::ToHex, sha256d};
 use failure::ResultExt;
 use secp256k1::Secp256k1;
 use serde_json::Value;
 
 use crate::entity::AssetEntity;
 use crate::errors::{OptionExt, Result};
+use crate::util::verify_bitcoin_msg;
 
 base64_serde_type!(Base64, base64::STANDARD);
 
@@ -109,6 +110,7 @@ impl AssetRegistry {
         // TODO verify asset_id, issuance_txid, associated contract_hash and wrapped issuer_pubkey
         // TODO verify H(contract) is committed to in the asset entropy
         // TODO verify online entity link
+        // TODO verify top-level issuer_pubkey matches contract
         // XXX how should updates be verified? should we require a sequence number or other form of anti-replay?
         self.verify_sig(asset)?;
         AssetEntity::verify_link(asset)?;
@@ -122,21 +124,18 @@ impl AssetRegistry {
         let pubkey = contract["issuer_pubkey"]
             .as_str()
             .or_err("missing required contract.issuer_pubkey")?;
-        let pubkey = secp256k1::PublicKey::from_slice(&hex::decode(pubkey)?)?;
+        let pubkey = hex::decode(pubkey)?;
 
-        let msg = hash_for_sig(asset)?;
-        let msg = secp256k1::Message::from_slice(&msg.into_inner())?;
+        let msg = format_sig_msg(asset);
+
+        verify_bitcoin_msg(&self.ec, &pubkey, &asset.signature, &msg)?;
 
         Ok(())
-
-        //let signature = secp256k1::Signature::from_compact(&asset.signature)?;
-
-        //Ok(self.ec.verify(&msg, &signature, &pubkey).context("signature veritification failed")?)
     }
 }
 
-fn hash_for_sig(asset: &Asset) -> Result<sha256d::Hash> {
-    let data = serde_json::to_string(&(
+fn format_sig_msg(asset: &Asset) -> String {
+    serde_json::to_string(&(
         "elements-asset-assoc",
         0, // version number for msg format
         &asset.asset_id,
@@ -144,6 +143,6 @@ fn hash_for_sig(asset: &Asset) -> Result<sha256d::Hash> {
         &asset.ticker,
         &asset.precision,
         &asset.entity,
-    ))?;
-    Ok(sha256d::Hash::hash(data.as_bytes()))
+    ))
+    .unwrap()
 }
