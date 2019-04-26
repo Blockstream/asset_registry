@@ -54,13 +54,14 @@ mod tests {
         };
     }
 
-    fn test0_init() {
-        stderrlog::new().verbosity(3).init(); //.unwrap();
-    }
-
     fn parse_json<T: for<'a> serde::de::Deserialize<'a>>(mut resp: LocalResponse) -> Result<T> {
         let body = resp.body_string().or_err("missing body")?;
         Ok(serde_json::from_str(&body)?)
+    }
+
+    #[test]
+    fn test0_init() {
+        stderrlog::new().verbosity(3).init(); //.unwrap();
     }
 
     #[test]
@@ -91,7 +92,27 @@ mod tests {
     }
 
     #[test]
-    fn test3_get() -> Result<()> {
+    fn test3_update_invalid_sig() -> Result<()> {
+        let resp = CLIENT.post("/")
+            .header(rocket::http::ContentType::JSON)
+            .body(r#"{
+                "asset_id": "5a273edc116adeacc13a7e8c4e987d31385db05c411c465df91bac4cf3aa0504",
+                "issuance_txid": "0a93069bba360df60d77ecfff99304a9de123fecb8217348bb9d35f4a96d2fca",
+                "contract": "{\"issuer_pubkey\":\"026be637f97bc191c27522577bd6fe284b54404321652fcc4eb62aa0f4cfd6d172\"}",
+                "name": "Foo Coin",
+                "ticker": "FOO",
+                "precision": 8,
+                "entity": { "domain": "foo.com" },
+                "signature": "JCm0o8st9zHdE3xcHgIkkDAC+KiRQwH/YzThdA3UxOe2dzcM/IQ0DGB2JhGsh66+0i3vXUlBjQPFP+latBMU6Ig="
+            }"#)
+            .dispatch();
+        assert_ne!(resp.status(), rocket::http::Status::Ok);
+        Ok(())
+    }
+
+
+    #[test]
+    fn test4_get() -> Result<()> {
         let resp = CLIENT
             .get("/5a273edc116adeacc13a7e8c4e987d31385db05c411c465df91bac4cf3aa0504")
             .dispatch();
@@ -107,7 +128,7 @@ mod tests {
     }
 
     #[test]
-    fn test3_list_with_asset() -> Result<()> {
+    fn test5_list_with_asset() -> Result<()> {
         let resp = CLIENT.get("/").dispatch();
         let assets: HashMap<sha256d::Hash, Asset> = parse_json(resp)?;
         debug!("assets: {:?}", assets);
