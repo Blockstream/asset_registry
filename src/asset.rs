@@ -2,14 +2,14 @@ use std::collections::HashMap;
 use std::fs;
 use std::path;
 use std::sync::RwLock;
-//use std::str::FromStr;
 
 use bitcoin_hashes::{hex::ToHex, sha256d, Hash};
 use secp256k1::PublicKey;
 use serde_json::Value;
-//use serde::{de, ser, Serializer, Deserializer};
 
 use crate::errors::{OptionExt, Result};
+
+base64_serde_type!(Base64, base64::STANDARD);
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum AssetEntity {
@@ -22,8 +22,8 @@ pub struct Asset {
     issuance_txid: sha256d::Hash,
     contract: String,
 
-    //#[serde(serialize_with = "ser_pubkey", deserialize_with = "deser_pubkey")]
-    //issuer_pubkey: PublicKey,
+    //#[serde(with = "Base64")]
+    //issuer_pubkey: [u8; 33],
     name: String,
     ticker: Option<String>,
     precision: Option<u8>,
@@ -32,6 +32,9 @@ pub struct Asset {
     entity_identifier: String,
     entity_url: Option<String>,
     entity_proof: Option<String>,
+
+    #[serde(with = "Base64")]
+    signature: Vec<u8>,
 }
 
 /*
@@ -63,6 +66,8 @@ impl Asset {
             entity_identifier: "foo.com".to_string(),
             entity_url: Some("https://foo.com/".to_string()),
             entity_proof: Some("https://foo.com/.well-known/liquid-issuer.proof".to_string()),
+
+            signature: vec![123, 90],
         }
     }
 

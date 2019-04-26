@@ -16,6 +16,7 @@ log = "0.4.5"
 stderrlog = "0.4.1"
 secp256k1 = "0.12.2"
 base64 = "0.10.1"
+base64-serde = "0.3.2"
 
 [dependencies.rocket_contrib]
 version = "0.4.0"
