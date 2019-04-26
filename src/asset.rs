@@ -151,6 +151,7 @@ fn verify_asset_data_sig(asset: &Asset, signature: &str) -> Result<()> {
 fn hash_for_sig(asset: &Asset) -> Result<sha256d::Hash> {
     let data = serde_json::to_string(&(
         "elements-asset-assoc",
+        0, // version number for msg format
         &asset.asset_id,
         &asset.name,
         &asset.ticker,
