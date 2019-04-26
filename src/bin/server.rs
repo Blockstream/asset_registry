@@ -37,6 +37,7 @@ fn update(asset: Json<Asset>, registry: State<AssetRegistry>) -> Result<()> {
 }
 
 fn main() {
+    stderrlog::new().verbosity(3).init().unwrap();
     // TODO make path configurable
     let registry = AssetRegistry::load(&Path::new("./db")).expect("failed initializing assets db");
 
