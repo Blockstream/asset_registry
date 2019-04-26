@@ -45,12 +45,16 @@ mod tests {
 
     lazy_static! {
         static ref CLIENT: Client = {
-            let server = start_server(Path::new("./test/db")).unwrap();
+            let db_path =
+                std::env::temp_dir().join(format!("asset-registry-testdb-{}", std::process::id()));
+            std::fs::create_dir_all(&db_path).unwrap();
+
+            let server = start_server(&db_path).unwrap();
             Client::new(server).unwrap()
         };
     }
 
-    fn init() {
+    fn test0_init() {
         stderrlog::new().verbosity(3).init(); //.unwrap();
     }
 
@@ -60,10 +64,10 @@ mod tests {
     }
 
     #[test]
-    fn test1_list() -> Result<()> {
+    fn test1_list_empty() -> Result<()> {
         let resp = CLIENT.get("/").dispatch();
         let assets: HashMap<sha256d::Hash, Asset> = parse_json(resp)?;
-        ensure!(assets.len() > 0, "has assets");
+        ensure!(assets.len() == 0, "shouldn't have assets yet");
         Ok(())
     }
 
@@ -82,7 +86,6 @@ mod tests {
                 "signature": "ICm0o3st9zHdE3xcHgIkkDAC+KiRQwH/YzThdA3UxOe2dzcM/IQ0DGB2JhGsh66+0i3vXUlBjQPFP+latBMU6Ig="
             }"#)
             .dispatch();
-        debug!("resp: {:?}", resp);
         assert_eq!(resp.status(), rocket::http::Status::Ok);
         Ok(())
     }
@@ -102,4 +105,23 @@ mod tests {
         assert_eq!(asset.name(), "Foo Coin");
         Ok(())
     }
+
+    #[test]
+    fn test3_list_with_asset() -> Result<()> {
+        let resp = CLIENT.get("/").dispatch();
+        let assets: HashMap<sha256d::Hash, Asset> = parse_json(resp)?;
+        debug!("assets: {:?}", assets);
+
+        assert!(assets.len() == 1, "should have one asset");
+
+        let asset_id = assets.keys().next().unwrap();
+        assert_eq!(
+            asset_id.to_hex(),
+            "5a273edc116adeacc13a7e8c4e987d31385db05c411c465df91bac4cf3aa0504"
+        );
+        assert_eq!(assets.get(asset_id).unwrap().name(), "Foo Coin");
+
+        Ok(())
+    }
+
 }
