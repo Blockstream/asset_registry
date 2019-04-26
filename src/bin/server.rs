@@ -33,9 +33,7 @@ fn get(id: String, registry: State<AssetRegistry>) -> Result<Option<JsonValue>> 
 fn update(asset: Json<Asset>, registry: State<AssetRegistry>) -> Result<()> {
     debug!("write asset: {:?}", asset);
 
-    let asset = asset.into_inner();
-    registry.verify(&asset)?;
-    registry.write(asset)
+    registry.write(asset.into_inner())
 }
 
 fn main() {
@@ -43,6 +41,8 @@ fn main() {
     let registry = AssetRegistry::load(&Path::new("./db")).expect("failed initializing assets db");
 
     info!("Registry: {:?}", registry);
+
+    //registry.write(Asset::new()).unwrap();
 
     rocket::ignite()
         .manage(registry)

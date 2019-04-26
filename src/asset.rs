@@ -4,7 +4,7 @@ use std::path;
 use std::sync::RwLock;
 
 use bitcoin_hashes::{hex::ToHex, sha256d, Hash};
-use secp256k1::PublicKey;
+use secp256k1::Secp256k1;
 use serde_json::Value;
 
 use crate::errors::{OptionExt, Result};
@@ -83,6 +83,7 @@ impl Asset {
 
 #[derive(Debug)]
 pub struct AssetRegistry {
+    ec: Secp256k1<secp256k1::VerifyOnly>,
     directory: path::PathBuf,
     assets_map: RwLock<HashMap<sha256d::Hash, Asset>>,
 }
@@ -99,6 +100,7 @@ impl AssetRegistry {
             .collect::<Result<HashMap<sha256d::Hash, Asset>>>()?;
 
         Ok(AssetRegistry {
+            ec: Secp256k1::verification_only(),
             directory: directory.to_path_buf(),
             assets_map: RwLock::new(assets_map),
         })
@@ -115,37 +117,44 @@ impl AssetRegistry {
     }
 
     pub fn write(&self, asset: Asset) -> Result<()> {
+        self.verify(&asset)?;
+
         let mut assets = self.assets_map.write().unwrap();
 
-        let path = self.directory.join(format!("{}.json", asset.asset_id.to_hex()));
+        let path = self
+            .directory
+            .join(format!("{}.json", asset.asset_id.to_hex()));
         fs::write(path, serde_json::to_string(&asset)?)?;
 
         assets.insert(asset.asset_id, asset);
         Ok(())
     }
 
-    pub fn verify(&self, asset: &Asset, signature: &str) -> Result<()> {
+    fn verify(&self, asset: &Asset) -> Result<()> {
         // TODO verify asset_id, issuance_txid, associated contract_hash and wrapped issuer_pubkey
         // TODO verify H(contract) is committed to in the asset entropy
         // TODO verify online entity link
-        verify_asset_data_sig(asset, signature)
+        // XXX how should updates be verified? should we require a sequence number or other form of anti-replay?
+        self.verify_sig(asset)
     }
-}
 
-fn verify_asset_data_sig(asset: &Asset, signature: &str) -> Result<()> {
-    let contract: Value = serde_json::from_str(&asset.contract)?;
+    fn verify_sig(&self, asset: &Asset) -> Result<()> {
+        let contract: Value = serde_json::from_str(&asset.contract).context("invalid contract json")?;
 
-    let pubkey = contract["issuer_pubkey"].as_str().or_err("missing required contract.issuer_pubkey")?;
-    let pubkey = hex::decode(pubkey)?;
-    let pubkey = PublicKey::from_slice(&pubkey)?;
+        let pubkey = contract["issuer_pubkey"]
+            .as_str()
+            .or_err("missing required contract.issuer_pubkey")?;
+        let pubkey = secp256k1::PublicKey::from_slice(&hex::decode(pubkey)?)?;
 
-    let msg = hash_for_sig(asset)?;
-    let msg = secp256k1::Message::from_slice(&msg.into_inner())?;
+        let msg = hash_for_sig(asset)?;
+        let msg = secp256k1::Message::from_slice(&msg.into_inner())?;
 
-    let signature = base64::decode(&signature)?;
-    let signature = secp256k1::Signature::from_compact(&signature)?;
+        Ok(())
 
-    Ok(secp256k1::Secp256k1::verification_only().verify(&msg, &signature, &pubkey)?)
+        //let signature = secp256k1::Signature::from_compact(&asset.signature)?;
+
+        //Ok(self.ec.verify(&msg, &signature, &pubkey).context("signature veritification failed")?)
+    }
 }
 
 fn hash_for_sig(asset: &Asset) -> Result<sha256d::Hash> {
@@ -159,5 +168,5 @@ fn hash_for_sig(asset: &Asset) -> Result<sha256d::Hash> {
         &asset.entity_type,
         &asset.entity_identifier,
     ))?;
-    Ok(sha256d::Hash::from_slice(data.as_bytes())?)
+    Ok(sha256d::Hash::hash(data.as_bytes()))
 }
