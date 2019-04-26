@@ -1,21 +1,22 @@
+use std::collections::HashMap;
 use std::path::Path;
 
 use bitcoin_hashes::{hex::FromHex, sha256d};
 use rocket::State;
-use rocket_contrib::json::{Json, JsonValue};
+use rocket_contrib::json::Json;
 
 use crate::asset::{Asset, AssetRegistry};
 use crate::errors::Result;
 
 #[get("/")]
-fn list(registry: State<AssetRegistry>) -> JsonValue {
-    json!(registry.list())
+fn list(registry: State<AssetRegistry>) -> Json<HashMap<sha256d::Hash, Asset>> {
+    Json(registry.list())
 }
 
 #[get("/<id>")]
-fn get(id: String, registry: State<AssetRegistry>) -> Result<Option<JsonValue>> {
+fn get(id: String, registry: State<AssetRegistry>) -> Result<Option<Json<Asset>>> {
     let id = sha256d::Hash::from_hex(&id)?;
-    Ok(registry.get(&id).map(|asset| json!(asset)))
+    Ok(registry.get(&id).map(Json))
 }
 
 #[post("/", format = "application/json", data = "<asset>")]
@@ -109,7 +110,6 @@ mod tests {
         assert_ne!(resp.status(), rocket::http::Status::Ok);
         Ok(())
     }
-
 
     #[test]
     fn test4_get() -> Result<()> {
