@@ -112,26 +112,26 @@ impl AssetRegistry {
         // TODO verify online entity link
         // TODO verify top-level issuer_pubkey matches contract
         // XXX how should updates be verified? should we require a sequence number or other form of anti-replay?
-        self.verify_sig(asset)?;
+        verify_asset_sig(&self.ec, asset)?;
         AssetEntity::verify_link(asset)?;
         Ok(())
     }
+}
 
-    fn verify_sig(&self, asset: &Asset) -> Result<()> {
-        let contract: Value =
-            serde_json::from_str(&asset.contract).context("invalid contract json")?;
+fn verify_asset_sig(ec: &Secp256k1<secp256k1::VerifyOnly>, asset: &Asset) -> Result<()> {
+    let contract: Value = serde_json::from_str(&asset.contract).context("invalid contract json")?;
 
-        let pubkey = contract["issuer_pubkey"]
-            .as_str()
-            .or_err("missing required contract.issuer_pubkey")?;
-        let pubkey = hex::decode(pubkey)?;
+    let pubkey = contract["issuer_pubkey"]
+        .as_str()
+        .or_err("missing required contract.issuer_pubkey")?;
+    let pubkey = hex::decode(pubkey)?;
 
-        let msg = format_sig_msg(asset);
+    let msg = format_sig_msg(asset);
+    debug!("msg: {}", msg);
 
-        verify_bitcoin_msg(&self.ec, &pubkey, &asset.signature, &msg)?;
+    verify_bitcoin_msg(ec, &pubkey, &asset.signature, &msg)?;
 
-        Ok(())
-    }
+    Ok(())
 }
 
 fn format_sig_msg(asset: &Asset) -> String {
@@ -145,4 +145,27 @@ fn format_sig_msg(asset: &Asset) -> String {
         &asset.entity,
     ))
     .unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn init() {
+        stderrlog::new().verbosity(3).init().unwrap();
+    }
+
+    #[test]
+    fn test_verify_asset_sig() -> Result<()> {
+        init();
+
+        let asset = Asset::load(PathBuf::from("test/asset.json")).unwrap();
+
+        let ec = Secp256k1::verification_only();
+
+        verify_asset_sig(&ec, &asset)?;
+
+        Ok(())
+    }
 }
