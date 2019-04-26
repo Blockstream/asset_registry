@@ -4,6 +4,8 @@ extern crate structopt;
 #[macro_use]
 extern crate log;
 extern crate base64;
+#[macro_use]
+extern crate failure;
 
 use bitcoin_hashes::{
     hex::{FromHex, ToHex},
@@ -47,12 +49,13 @@ enum Command {
         asset_id: sha256d::Hash,
         #[structopt(flatten)]
         fields: AssetArgs,
-        #[structopt(long = "issuance-txid", parse(try_from_str = "sha256d::Hash::from_hex"))]
+        #[structopt(
+            long = "issuance-txid",
+            parse(try_from_str = "sha256d::Hash::from_hex")
+        )]
         issuance_txid: sha256d::Hash,
         #[structopt(long)]
         contract: String,
-        //#[structopt(long, parse(try_from_str = "base64::decode"))]
-        //signature: Vec<u8>,
 
         #[structopt(long)]
         signature: String,
@@ -69,6 +72,13 @@ enum Command {
         fail: bool,
         jsons: Vec<String>,
     },
+
+    #[structopt(name = "register-asset", about = "Send asset to registry")]
+    RegisterAsset {
+        #[structopt(short, long = "registry-url")]
+        registry_url: String,
+        json: String,
+    },
 }
 
 #[derive(StructOpt, Debug)]
@@ -81,7 +91,12 @@ struct AssetArgs {
     precision: Option<u8>,
     //#[structopt(long, help = "Domain name to associate with the asset")]
     //domain: String,
-    #[structopt(name = "domain", long, help = "Domain name to associate with the asset", parse(from_str = "parse_domain_entity"))]
+    #[structopt(
+        name = "domain",
+        long,
+        help = "Domain name to associate with the asset",
+        parse(from_str = "parse_domain_entity")
+    )]
     entity: AssetEntity,
 }
 
@@ -165,6 +180,20 @@ fn main() -> Result<()> {
                     }
                 }
             }
+        }
+
+        Command::RegisterAsset { registry_url, json } => {
+            let asset: Asset = serde_json::from_str(&json).context("invalid asset json")?;
+            let client = reqwest::Client::new();
+            let mut resp = client.post(&registry_url).json(&asset).send()?;
+
+            if resp.status() != reqwest::StatusCode::OK {
+                error!("invalid reply from registry: {:#?}", resp);
+                error!("{}", resp.text()?);
+                bail!("asset registeration failed")
+            }
+
+            info!("asset submitted to registry: {:?}", asset);
         }
     }
 
