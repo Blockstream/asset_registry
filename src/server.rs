@@ -83,9 +83,9 @@ mod tests {
                 "contract": "{\"issuer_pubkey\":\"026be637f97bc191c27522577bd6fe284b54404321652fcc4eb62aa0f4cfd6d172\"}",
                 "name": "Foo Coin",
                 "ticker": "FOO",
-                "precision": 8,
+                "precision": 3,
                 "entity": { "domain": "foo.com" },
-                "signature": "ICm0o3st9zHdE3xcHgIkkDAC+KiRQwH/YzThdA3UxOe2dzcM/IQ0DGB2JhGsh66+0i3vXUlBjQPFP+latBMU6Ig="
+                "signature": "H5P8HDEUBlZUAqp7M+v6N5sakwbFlm0XSioTMwAizBkyMt82uK7EwdzDugP9Z1KbYkllQiHUO8Y0F5EiEMF/NyY="
             }"#)
             .dispatch();
         assert_eq!(resp.status(), rocket::http::Status::Ok);
@@ -101,10 +101,10 @@ mod tests {
                 "issuance_txid": "0a93069bba360df60d77ecfff99304a9de123fecb8217348bb9d35f4a96d2fca",
                 "contract": "{\"issuer_pubkey\":\"026be637f97bc191c27522577bd6fe284b54404321652fcc4eb62aa0f4cfd6d172\"}",
                 "name": "Foo Coin",
-                "ticker": "FOO",
-                "precision": 8,
+                "ticker": "FOX",
+                "precision": 3,
                 "entity": { "domain": "foo.com" },
-                "signature": "JCm0o8st9zHdE3xcHgIkkDAC+KiRQwH/YzThdA3UxOe2dzcM/IQ0DGB2JhGsh66+0i3vXUlBjQPFP+latBMU6Ig="
+                "signature": "H5P8HDEUBlZUAqp7M+v6N5sakwbFlm0XSioTMwAizBkyMt82uK7EwdzDugP9Z1KbYkllQiHUO8Y0F5EiEMF/NyY="
             }"#)
             .dispatch();
         assert_ne!(resp.status(), rocket::http::Status::Ok);
