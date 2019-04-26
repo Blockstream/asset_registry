@@ -49,6 +49,7 @@ fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
 
     let body = reqwest::get(&page_url)
         .context(format!("failed fetching {}", page_url))?
+        .error_for_status()?
         .text()
         .context("invalid page contents")?;
 
