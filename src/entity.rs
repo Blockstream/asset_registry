@@ -63,14 +63,14 @@ mod tests {
     use std::path::PathBuf;
 
     fn init() {
-        stderrlog::new().verbosity(3).init().unwrap();
+        stderrlog::new().verbosity(3).init(); // .unwrap();
     }
 
     #[test]
     fn test_verify_domain_link() {
         init();
 
-        let asset = Asset::load(PathBuf::from("test/asset.json")).unwrap();
+        let asset = Asset::load(PathBuf::from("test/db/asset.json")).unwrap();
         // expects https://test.dev/ to forward requests to a local web server
         verify_domain_link(&asset, "test.dv").expect("failed verifying domain name");
     }

@@ -153,14 +153,14 @@ mod tests {
     use std::path::PathBuf;
 
     fn init() {
-        stderrlog::new().verbosity(3).init().unwrap();
+        stderrlog::new().verbosity(3).init(); // .unwrap();
     }
 
     #[test]
     fn test_verify_asset_sig() -> Result<()> {
         init();
 
-        let asset = Asset::load(PathBuf::from("test/asset.json")).unwrap();
+        let asset = Asset::load(PathBuf::from("test/db/asset.json")).unwrap();
 
         let ec = Secp256k1::verification_only();
 

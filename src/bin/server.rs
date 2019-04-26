@@ -5,8 +5,8 @@ extern crate stderrlog;
 
 use std::path::Path;
 
-use asset_registry::start_server;
 use asset_registry::errors::Result;
+use asset_registry::start_server;
 
 fn main() -> Result<()> {
     stderrlog::new().verbosity(3).init().unwrap();
