@@ -11,7 +11,6 @@ extern crate base64_serde;
 extern crate serde_derive;
 #[macro_use]
 extern crate rocket;
-#[macro_use]
 extern crate rocket_contrib;
 #[macro_use]
 extern crate lazy_static;
@@ -19,6 +18,7 @@ extern crate lazy_static;
 extern crate failure;
 #[macro_use]
 extern crate log;
+extern crate regex;
 
 pub mod asset;
 pub mod entity;
