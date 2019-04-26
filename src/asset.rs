@@ -4,6 +4,7 @@ use std::path;
 use std::sync::RwLock;
 
 use bitcoin_hashes::{hex::ToHex, sha256d, Hash};
+use failure::ResultExt;
 use secp256k1::Secp256k1;
 use serde_json::Value;
 
@@ -13,7 +14,8 @@ base64_serde_type!(Base64, base64::STANDARD);
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum AssetEntity {
-    DomainName,
+    #[serde(rename = "domain")]
+    DomainName(String),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -28,8 +30,7 @@ pub struct Asset {
     ticker: Option<String>,
     precision: Option<u8>,
 
-    entity_type: AssetEntity,
-    entity_identifier: String,
+    entity: AssetEntity,
     entity_url: Option<String>,
     entity_proof: Option<String>,
 
@@ -62,8 +63,8 @@ impl Asset {
             ticker: Some("FOO".to_string()),
             precision: Some(8),
 
-            entity_type: AssetEntity::DomainName,
-            entity_identifier: "foo.com".to_string(),
+            entity: AssetEntity::DomainName("foo.com".to_string()),
+            //entity_identifier: "foo.com".to_string(),
             entity_url: Some("https://foo.com/".to_string()),
             entity_proof: Some("https://foo.com/.well-known/liquid-issuer.proof".to_string()),
 
@@ -139,7 +140,8 @@ impl AssetRegistry {
     }
 
     fn verify_sig(&self, asset: &Asset) -> Result<()> {
-        let contract: Value = serde_json::from_str(&asset.contract).context("invalid contract json")?;
+        let contract: Value =
+            serde_json::from_str(&asset.contract).context("invalid contract json")?;
 
         let pubkey = contract["issuer_pubkey"]
             .as_str()
@@ -165,8 +167,7 @@ fn hash_for_sig(asset: &Asset) -> Result<sha256d::Hash> {
         &asset.name,
         &asset.ticker,
         &asset.precision,
-        &asset.entity_type,
-        &asset.entity_identifier,
+        &asset.entity,
     ))?;
     Ok(sha256d::Hash::hash(data.as_bytes()))
 }
