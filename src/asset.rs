@@ -8,15 +8,10 @@ use failure::ResultExt;
 use secp256k1::Secp256k1;
 use serde_json::Value;
 
+use crate::entity::AssetEntity;
 use crate::errors::{OptionExt, Result};
 
 base64_serde_type!(Base64, base64::STANDARD);
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum AssetEntity {
-    #[serde(rename = "domain")]
-    DomainName(String),
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Asset {
@@ -31,47 +26,22 @@ pub struct Asset {
     precision: Option<u8>,
 
     entity: AssetEntity,
-    entity_url: Option<String>,
-    entity_proof: Option<String>,
 
     #[serde(with = "Base64")]
     signature: Vec<u8>,
 }
 
 /*
-fn ser_pubkey<S>(key: PublicKey, s: S) -> Result<S::Ok, S::Error>
-where S: Serializer
-{
-    s.serialize_str(&hex::encode(&key.serialize()))
+struct AssetSignature {
+    version: u32,
+    timestamp: u32,
+    seq: u32,
+    #[serde(with = "Base64")]
+    signature: Vec<u8>,
 }
-
-fn deser_pubkey<'de, D>(deserializer: D) -> Result<PublicKey, D::Error>
-where D: Deserializer<'de>
-{
-    let keystr = String::deserialize(deserializer)?;
-    Ok(PublicKey::from_str(keystr)?)
-}*/
+*/
 
 impl Asset {
-    pub fn new() -> Self {
-        Asset {
-            asset_id: sha256d::Hash::default(),
-            issuance_txid: sha256d::Hash::default(),
-
-            contract: "{\"issuer_pubkey\":\"aabb\"}".to_string(),
-            name: "Foo Coin".to_string(),
-            ticker: Some("FOO".to_string()),
-            precision: Some(8),
-
-            entity: AssetEntity::DomainName("foo.com".to_string()),
-            //entity_identifier: "foo.com".to_string(),
-            entity_url: Some("https://foo.com/".to_string()),
-            entity_proof: Some("https://foo.com/.well-known/liquid-issuer.proof".to_string()),
-
-            signature: vec![123, 90],
-        }
-    }
-
     pub fn load(path: path::PathBuf) -> Result<Asset> {
         let contents = fs::read_to_string(path)?;
         Ok(serde_json::from_str(&contents)?)
@@ -79,6 +49,10 @@ impl Asset {
 
     pub fn id(&self) -> &sha256d::Hash {
         &self.asset_id
+    }
+
+    pub fn entity(&self) -> &AssetEntity {
+        &self.entity
     }
 }
 
@@ -136,7 +110,9 @@ impl AssetRegistry {
         // TODO verify H(contract) is committed to in the asset entropy
         // TODO verify online entity link
         // XXX how should updates be verified? should we require a sequence number or other form of anti-replay?
-        self.verify_sig(asset)
+        self.verify_sig(asset)?;
+        AssetEntity::verify_link(asset)?;
+        Ok(())
     }
 
     fn verify_sig(&self, asset: &Asset) -> Result<()> {

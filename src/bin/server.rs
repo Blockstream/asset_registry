@@ -43,8 +43,6 @@ fn main() {
 
     info!("Registry: {:?}", registry);
 
-    //registry.write(Asset::new()).unwrap();
-
     rocket::ignite()
         .manage(registry)
         .mount("/", routes![list, get, update])
