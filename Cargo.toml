@@ -23,6 +23,7 @@ reqwest = "0.9.15"
 lazy_static = "1.3.0"
 idna = "0.1.5"
 regex = "1.1.6"
+structopt = "0.2.15"
 
 [dependencies.rocket_contrib]
 version = "0.4.0"
