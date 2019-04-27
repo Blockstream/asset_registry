@@ -159,8 +159,7 @@ mod tests {
         let prevout = OutPoint {
             txid: sha256d::Hash::from_hex(
                 "0a93069bba360df60d77ecfff99304a9de123fecb8217348bb9d35f4a96d2fca",
-            )
-            .unwrap(),
+            )?,
             vout: 0,
         };
         let contract_hash = sha256d::Hash::default();
@@ -168,13 +167,12 @@ mod tests {
         let asset_id = get_asset_tag(&entropy);
 
         debug!(
-            "prevout {:?} + contract_hash {} --> entropy {}",
+            "prevout {:?} + contract_hash {} --> entropy {} --> asset id {}",
             prevout,
             contract_hash.to_hex(),
-            entropy.to_hex()
+            entropy.to_hex(),
+            asset_id.to_hex(),
         );
-        debug!("entropy = {}", entropy.to_hex());
-        debug!("asset_id = {}", asset_id.to_hex());
 
         assert_eq!(
             entropy.to_hex(),
@@ -189,16 +187,16 @@ mod tests {
     }
 
     #[test]
-    fn test_asset_id() {
+    fn test_asset_tag() -> Result<()> {
         let entropy = sha256d::Hash::from_hex(
             "b8c4a6b3bb81c57e08b3c3b42d682ed287f492da6575fffd81d98893d74418b6",
-        )
-        .unwrap();
+        )?;
         let asset_id = get_asset_tag(&entropy);
         debug!("entropy {} --> asset_id {}", entropy, asset_id);
         assert_eq!(
             asset_id.to_hex(),
             "ff6fa9c92fd6086523e11607f6ee8ba90406ccaf738c49bf667ae5ec93733276"
         );
+        Ok(())
     }
 }
