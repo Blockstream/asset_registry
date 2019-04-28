@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use bitcoin_hashes::{hex::FromHex, sha256d};
-use rocket::State;
+use rocket::{http, State};
 use rocket_contrib::json::Json;
 
 use crate::asset::Asset;
@@ -21,10 +21,12 @@ fn get(id: String, registry: State<Registry>) -> Result<Option<Json<Asset>>> {
 }
 
 #[post("/", format = "application/json", data = "<asset>")]
-fn update(asset: Json<Asset>, registry: State<Registry>) -> Result<()> {
+fn update(asset: Json<Asset>, registry: State<Registry>) -> Result<http::Status> {
     debug!("write asset: {:?}", asset);
 
-    registry.write(asset.into_inner())
+    registry.write(asset.into_inner())?;
+
+    Ok(http::Status::NoContent)
 }
 
 pub fn start_server(db_path: &Path) -> Result<rocket::Rocket> {
@@ -78,7 +80,7 @@ mod tests {
     #[test]
     fn test2_update() -> Result<()> {
         let resp = CLIENT.post("/")
-            .header(rocket::http::ContentType::JSON)
+            .header(http::ContentType::JSON)
             .body(r#"{
                 "asset_id": "5a273edc116adeacc13a7e8c4e987d31385db05c411c465df91bac4cf3aa0504",
                 "issuance_txid": "0a93069bba360df60d77ecfff99304a9de123fecb8217348bb9d35f4a96d2fca",
@@ -90,14 +92,14 @@ mod tests {
                 "signature": "H5P8HDEUBlZUAqp7M+v6N5sakwbFlm0XSioTMwAizBkyMt82uK7EwdzDugP9Z1KbYkllQiHUO8Y0F5EiEMF/NyY="
             }"#)
             .dispatch();
-        assert_eq!(resp.status(), rocket::http::Status::Ok);
+        assert_eq!(resp.status(), http::Status::NoContent);
         Ok(())
     }
 
     #[test]
     fn test3_update_invalid_sig() -> Result<()> {
         let resp = CLIENT.post("/")
-            .header(rocket::http::ContentType::JSON)
+            .header(http::ContentType::JSON)
             .body(r#"{
                 "asset_id": "5a273edc116adeacc13a7e8c4e987d31385db05c411c465df91bac4cf3aa0504",
                 "issuance_txid": "0a93069bba360df60d77ecfff99304a9de123fecb8217348bb9d35f4a96d2fca",
@@ -109,7 +111,7 @@ mod tests {
                 "signature": "H5P8HDEUBlZUAqp7M+v6N5sakwbFlm0XSioTMwAizBkyMt82uK7EwdzDugP9Z1KbYkllQiHUO8Y0F5EiEMF/NyY="
             }"#)
             .dispatch();
-        assert_ne!(resp.status(), rocket::http::Status::Ok);
+        assert_ne!(resp.status(), http::Status::Ok);
         Ok(())
     }
 
