@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-use std::sync::RwLock;
-use std::{fs, io, path};
+use std::{fs, path};
 
-use bitcoin_hashes::{hex::ToHex, sha256d};
+use bitcoin_hashes::sha256d;
 use failure::ResultExt;
 use regex::Regex;
 use secp256k1::Secp256k1;
@@ -12,10 +10,6 @@ use structopt::StructOpt;
 use crate::entity::AssetEntity;
 use crate::errors::{OptionExt, Result};
 use crate::util::verify_bitcoin_msg;
-
-// length of asset id prefix to use for sub-directory partitioning
-// (in number of hex characters, not bytes)
-const DIR_PARTITION_LEN: usize = 2;
 
 lazy_static! {
     static ref EC: Secp256k1<secp256k1::VerifyOnly> = Secp256k1::verification_only();
@@ -115,62 +109,6 @@ impl Asset {
 
         AssetEntity::verify_link(self).context("failed verifying linked entity")?;
 
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub struct AssetRegistry {
-    directory: path::PathBuf,
-    assets_map: RwLock<HashMap<sha256d::Hash, Asset>>,
-}
-
-impl AssetRegistry {
-    pub fn load(directory: &path::Path) -> Result<AssetRegistry> {
-        // read all the files in all the sub-directories within `directory`
-        let assets_map = fs::read_dir(&directory)?
-            .map(|entry| fs::read_dir(entry?.path()))
-            .collect::<io::Result<Vec<fs::ReadDir>>>()?
-            .into_iter()
-            .flat_map(|files| {
-                files.map(|e| {
-                    let asset = Asset::load(e?.path())?;
-                    Ok((asset.asset_id, asset))
-                })
-            })
-            .collect::<Result<HashMap<sha256d::Hash, Asset>>>()?;
-
-        Ok(AssetRegistry {
-            directory: directory.to_path_buf(),
-            assets_map: RwLock::new(assets_map),
-        })
-    }
-
-    pub fn list(&self) -> HashMap<sha256d::Hash, Asset> {
-        let assets = self.assets_map.read().unwrap();
-        assets.clone() // TODO avoid clone
-    }
-
-    pub fn get(&self, asset_id: &sha256d::Hash) -> Option<Asset> {
-        let assets = self.assets_map.read().unwrap();
-        assets.get(asset_id).cloned() // TODO avoid clone
-    }
-
-    pub fn write(&self, asset: Asset) -> Result<()> {
-        asset.verify()?;
-
-        let mut assets = self.assets_map.write().unwrap();
-
-        let name = format!("{}.json", asset.asset_id.to_hex());
-        let dir = self.directory.join(&name[0..DIR_PARTITION_LEN]);
-
-        if !dir.exists() {
-            fs::create_dir(&dir)?;
-        }
-
-        fs::write(dir.join(name), serde_json::to_string(&asset)?)?;
-
-        assets.insert(asset.asset_id, asset);
         Ok(())
     }
 }

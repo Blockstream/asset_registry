@@ -5,29 +5,30 @@ use bitcoin_hashes::{hex::FromHex, sha256d};
 use rocket::State;
 use rocket_contrib::json::Json;
 
-use crate::asset::{Asset, AssetRegistry};
+use crate::asset::Asset;
 use crate::errors::Result;
+use crate::registry::Registry;
 
 #[get("/")]
-fn list(registry: State<AssetRegistry>) -> Json<HashMap<sha256d::Hash, Asset>> {
+fn list(registry: State<Registry>) -> Json<HashMap<sha256d::Hash, Asset>> {
     Json(registry.list())
 }
 
 #[get("/<id>")]
-fn get(id: String, registry: State<AssetRegistry>) -> Result<Option<Json<Asset>>> {
+fn get(id: String, registry: State<Registry>) -> Result<Option<Json<Asset>>> {
     let id = sha256d::Hash::from_hex(&id)?;
     Ok(registry.get(&id).map(Json))
 }
 
 #[post("/", format = "application/json", data = "<asset>")]
-fn update(asset: Json<Asset>, registry: State<AssetRegistry>) -> Result<()> {
+fn update(asset: Json<Asset>, registry: State<Registry>) -> Result<()> {
     debug!("write asset: {:?}", asset);
 
     registry.write(asset.into_inner())
 }
 
 pub fn start_server(db_path: &Path) -> Result<rocket::Rocket> {
-    let registry = AssetRegistry::load(db_path)?;
+    let registry = Registry::load(db_path)?;
 
     info!("Starting Rocket web server with registry: {:?}", registry);
 
@@ -36,6 +37,7 @@ pub fn start_server(db_path: &Path) -> Result<rocket::Rocket> {
         .mount("/", routes![list, get, update]))
 }
 
+// needs to be run with --test-threads 1
 #[cfg(test)]
 mod tests {
     use super::*;
