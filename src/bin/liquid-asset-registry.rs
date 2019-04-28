@@ -14,7 +14,6 @@ use bitcoin_hashes::{
 use structopt::StructOpt;
 
 use asset_registry::asset::{format_sig_msg, Asset, AssetFields};
-use asset_registry::entity::AssetEntity;
 use asset_registry::errors::{Result, ResultExt};
 
 #[derive(StructOpt, Debug)]
@@ -37,7 +36,7 @@ enum Command {
         #[structopt(long = "asset-id", parse(try_from_str = "sha256d::Hash::from_hex"))]
         asset_id: sha256d::Hash,
         #[structopt(flatten)]
-        fields: AssetArgs,
+        fields: AssetFields,
     },
 
     #[structopt(
@@ -48,7 +47,7 @@ enum Command {
         #[structopt(long = "asset-id", parse(try_from_str = "sha256d::Hash::from_hex"))]
         asset_id: sha256d::Hash,
         #[structopt(flatten)]
-        fields: AssetArgs,
+        fields: AssetFields,
         #[structopt(
             long = "issuance-txid",
             parse(try_from_str = "sha256d::Hash::from_hex")
@@ -81,47 +80,6 @@ enum Command {
     },
 }
 
-#[derive(StructOpt, Debug)]
-struct AssetArgs {
-    #[structopt(long, help = "Asset name (5-16 characters)")]
-    name: String,
-    #[structopt(long, help = "Asset ticker (alphanumeric, 3-5 chars)")]
-    ticker: Option<String>,
-    #[structopt(long, help = "Asset decimal precision (up to 8)")]
-    precision: Option<u8>,
-    //#[structopt(long, help = "Domain name to associate with the asset")]
-    //domain: String,
-    #[structopt(
-        name = "domain",
-        long,
-        help = "Domain name to associate with the asset",
-        parse(from_str = "parse_domain_entity")
-    )]
-    entity: AssetEntity,
-}
-
-fn parse_domain_entity(domain: &str) -> AssetEntity {
-    AssetEntity::DomainName(domain.to_string())
-}
-
-impl AssetArgs {
-    fn into_fields(self) -> AssetFields {
-        let AssetArgs {
-            name,
-            ticker,
-            precision,
-            entity,
-        } = self;
-
-        AssetFields {
-            name,
-            ticker,
-            precision,
-            entity,
-        }
-    }
-}
-
 fn main() -> Result<()> {
     let args = Cli::from_args();
     stderrlog::new().verbosity(args.verbose + 2).init().unwrap();
@@ -129,26 +87,24 @@ fn main() -> Result<()> {
 
     match args.cmd {
         Command::MakeSigMessage { asset_id, fields } => {
-            let fields = fields.into_fields();
             let msg = format_sig_msg(&asset_id, &fields);
             println!("{}", msg);
         }
 
         Command::MakeSubmission {
             asset_id,
+            fields,
             issuance_txid,
             contract,
-            fields,
             signature,
             verify,
         } => {
-            let signature = base64::decode(&signature).context("invalid signature")?;
-            let fields = fields.into_fields();
+            let signature = base64::decode(&signature).context("invalid signature base64")?;
             let asset = Asset {
                 asset_id,
+                fields,
                 issuance_txid,
                 contract,
-                fields,
                 signature,
             };
 
