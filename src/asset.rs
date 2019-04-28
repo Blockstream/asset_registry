@@ -1,7 +1,6 @@
 use std::collections::HashMap;
-use std::fs;
-use std::path;
 use std::sync::RwLock;
+use std::{fs, io, path};
 
 use bitcoin_hashes::{hex::ToHex, sha256d};
 use failure::ResultExt;
@@ -13,6 +12,10 @@ use structopt::StructOpt;
 use crate::entity::AssetEntity;
 use crate::errors::{OptionExt, Result};
 use crate::util::verify_bitcoin_msg;
+
+// length of asset id prefix to use for sub-directory partitioning
+// (in number of hex characters, not bytes)
+const DIR_PARTITION_LEN: usize = 2;
 
 lazy_static! {
     static ref EC: Secp256k1<secp256k1::VerifyOnly> = Secp256k1::verification_only();
@@ -124,12 +127,16 @@ pub struct AssetRegistry {
 
 impl AssetRegistry {
     pub fn load(directory: &path::Path) -> Result<AssetRegistry> {
-        let files = fs::read_dir(&directory)?;
-        let assets_map = files
-            .map(|entry| {
-                let entry = entry?;
-                let asset = Asset::load(entry.path())?;
-                Ok((asset.asset_id, asset))
+        // read all the files in all the sub-directories within `directory`
+        let assets_map = fs::read_dir(&directory)?
+            .map(|entry| fs::read_dir(entry?.path()))
+            .collect::<io::Result<Vec<fs::ReadDir>>>()?
+            .into_iter()
+            .flat_map(|files| {
+                files.map(|e| {
+                    let asset = Asset::load(e?.path())?;
+                    Ok((asset.asset_id, asset))
+                })
             })
             .collect::<Result<HashMap<sha256d::Hash, Asset>>>()?;
 
@@ -154,10 +161,14 @@ impl AssetRegistry {
 
         let mut assets = self.assets_map.write().unwrap();
 
-        let path = self
-            .directory
-            .join(format!("{}.json", asset.asset_id.to_hex()));
-        fs::write(path, serde_json::to_string(&asset)?)?;
+        let name = format!("{}.json", asset.asset_id.to_hex());
+        let dir = self.directory.join(&name[0..DIR_PARTITION_LEN]);
+
+        if !dir.exists() {
+            fs::create_dir(&dir)?;
+        }
+
+        fs::write(dir.join(name), serde_json::to_string(&asset)?)?;
 
         assets.insert(asset.asset_id, asset);
         Ok(())
