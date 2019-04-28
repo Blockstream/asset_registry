@@ -30,12 +30,19 @@ fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
     ensure!(is_valid_domain(domain), "invalid domain name");
 
     // TODO normalize domain name
-    // TODO change back to https
+    // TODO tor proxy for accessing onion
+
+    // require tls for non-onion hosts, assume http for onion ones
+    let protocol = if &domain[domain.len() - 6..] == ".onion" {
+        "http"
+    } else {
+        "https"
+    };
 
     let asset_id = asset.id().to_hex();
     let page_url = format!(
-        "https://{}/.well-known/liquid-asset-proof-{}",
-        domain, asset_id
+        "{}://{}/.well-known/liquid-asset-proof-{}",
+        protocol, domain, asset_id
     );
     let expected_body = format!(
         "Authorize linking the domain name {} to the Liquid asset {}",
