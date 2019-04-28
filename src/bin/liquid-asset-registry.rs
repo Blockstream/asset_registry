@@ -161,22 +161,18 @@ fn main() -> Result<()> {
         }
 
         Command::VerifyAsset { fail, jsons } => {
+            // always fail if we have a single json
             let fail = fail || jsons.len() == 1;
             for json in jsons {
                 let asset: Asset = serde_json::from_str(&json).context("invalid asset json")?;
                 debug!("verifying asset: {:?}", asset);
 
                 match asset.verify() {
-                    Ok(()) => {
-                        debug!("asset verified successfully");
-                        println!("{},true", asset.id().to_hex());
-                    }
+                    Ok(()) => println!("{},true", asset.id().to_hex()),
                     Err(err) => {
                         warn!("asset verification failed: {:}", err);
                         println!("{},false,\"{}\"", asset.id().to_hex(), err.to_string());
-                        if fail {
-                            std::process::exit(1)
-                        }
+                        ensure!(!fail, "failed verifying asset, aborting");
                     }
                 }
             }
