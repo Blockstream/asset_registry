@@ -44,6 +44,7 @@ pub fn start_server(db_path: &Path) -> Result<rocket::Rocket> {
 mod tests {
     use super::*;
     use crate::errors::OptionExt;
+    use crate::entity::tests::spawn_verifier_server;
     use bitcoin_hashes::hex::ToHex;
     use rocket::local::{Client, LocalResponse};
     use std::collections::HashMap;
@@ -66,7 +67,8 @@ mod tests {
 
     #[test]
     fn test0_init() {
-        stderrlog::new().verbosity(3).init(); //.unwrap();
+        stderrlog::new().verbosity(3).init();
+        spawn_verifier_server();
     }
 
     #[test]
@@ -88,8 +90,8 @@ mod tests {
                 "name": "Foo Coin",
                 "ticker": "FOO",
                 "precision": 3,
-                "entity": { "domain": "foo.com" },
-                "signature": "H5P8HDEUBlZUAqp7M+v6N5sakwbFlm0XSioTMwAizBkyMt82uK7EwdzDugP9Z1KbYkllQiHUO8Y0F5EiEMF/NyY="
+                "entity": { "domain": "test.dev" },
+                "signature": "IASSQAy3O7tyyZn+jBYIkRadDXDo4nCBSJRloZZ9RoEffGkfTc5hDn+BO0J8r1XdfTqiZW8z5UHd8sA11HyogzY="
             }"#)
             .dispatch();
         assert_eq!(resp.status(), http::Status::NoContent);

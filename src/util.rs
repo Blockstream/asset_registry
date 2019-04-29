@@ -61,6 +61,21 @@ pub fn get_asset_entropy(prevout: &OutPoint, contract_hash: &sha256d::Hash) -> s
     bitcoin_merkle_root(vec![prevout_hash, contract_hash.clone()])
 }
 
+// Utility to transform booleans into Options
+pub trait BoolOpt: Sized {
+    fn as_option(self) -> Option<()>;
+}
+impl BoolOpt for bool {
+    #[inline]
+    fn as_option(self) -> Option<()> {
+        if self {
+            Some(())
+        } else {
+            None
+        }
+    }
+}
+
 // Domain name validation code extracted from https://github.com/rushmorem/publicsuffix/blob/master/src/lib.rs
 // (MIT, Copyright (c) 2016 Rushmore Mushambi)
 

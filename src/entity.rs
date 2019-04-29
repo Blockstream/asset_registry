@@ -49,6 +49,13 @@ fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
         domain, asset_id
     );
 
+    // use a hard-coded verification page in test mode
+    #[cfg(test)]
+    let page_url = format!(
+        "http://127.0.0.1:58712/.well-known/liquid-asset-proof-{}",
+        asset_id
+    );
+
     debug!(
         "verifying domain name {} for {}: GET {}",
         domain, asset_id, page_url
@@ -65,21 +72,52 @@ fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
     Ok(())
 }
 
+// needs to be run with --test-threads 1
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
+    use crate::util::BoolOpt;
+    use rocket as r;
     use std::path::PathBuf;
+    use std::sync::{Once, ONCE_INIT};
 
-    fn init() {
-        stderrlog::new().verbosity(3).init(); // .unwrap();
+    static SPAWN_ONCE: Once = ONCE_INIT;
+
+    // a server that identifies as "test.dev" and verifies any requested asset id
+    pub fn spawn_verifier_server() {
+        SPAWN_ONCE.call_once(|| {
+            let config = r::config::Config::build(r::config::Environment::Development)
+                .port(58712)
+                .finalize()
+                .unwrap();
+            let rocket = r::custom(config).mount("/", routes![verify_handler]);
+
+            std::thread::spawn(|| rocket.launch());
+        })
+    }
+
+    #[get("/.well-known/<page>")]
+    fn verify_handler(page: String) -> Option<String> {
+        page.starts_with("liquid-asset-proof-")
+            .as_option()
+            .map(|_| {
+                format!(
+                    "Authorize linking the domain name test.dev to the Liquid asset {}",
+                    &page[19..]
+                )
+            })
     }
 
     #[test]
-    fn test_verify_domain_link() {
-        init();
+    fn test0_init() {
+        stderrlog::new().verbosity(3).init();
+        spawn_verifier_server();
+    }
 
+    #[test]
+    fn test1_verify_domain_link() {
         let asset = Asset::load(PathBuf::from("test/db/asset.json")).unwrap();
         // expects https://test.dev/ to forward requests to a local web server
-        verify_domain_link(&asset, "test.dv").expect("failed verifying domain name");
+        verify_domain_link(&asset, "test.dev").expect("failed verifying domain name");
     }
 }
