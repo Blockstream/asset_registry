@@ -3,6 +3,7 @@ use std::sync::RwLock;
 use std::{fs, io, path};
 
 use bitcoin_hashes::{hex::ToHex, sha256d};
+use serde::Serialize;
 
 use crate::asset::Asset;
 use crate::errors::Result;
@@ -51,18 +52,30 @@ impl Registry {
     pub fn write(&self, asset: Asset) -> Result<()> {
         asset.verify()?;
 
-        let mut assets = self.assets_map.write().unwrap();
+        {
+            let mut assets = self.assets_map.write().unwrap();
 
-        let name = format!("{}.json", asset.asset_id.to_hex());
-        let dir = self.directory.join(&name[0..DIR_PARTITION_LEN]);
+            let name = format!("{}.json", asset.asset_id.to_hex());
+            let dir = self.directory.join(&name[0..DIR_PARTITION_LEN]);
 
-        if !dir.exists() {
-            fs::create_dir(&dir)?;
-        }
+            if !dir.exists() {
+                fs::create_dir(&dir)?;
+            }
 
-        fs::write(dir.join(name), serde_json::to_string(&asset)?)?;
+            fs::write(dir.join(name), serde_json::to_string(&asset)?)?;
 
-        assets.insert(asset.asset_id, asset);
+            assets.insert(asset.asset_id, asset);
+        } // drop write lock
+
+        self.update_index()?;
+
         Ok(())
+    }
+
+    pub fn update_index(&self) -> Result<()> {
+        Ok(fs::write(
+            self.directory.join("index.json"),
+            serde_json::to_string(&self.assets_map)?,
+        )?)
     }
 }
