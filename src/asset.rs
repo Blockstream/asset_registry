@@ -119,7 +119,7 @@ fn verify_asset_sig(asset: &Asset) -> Result<()> {
     let pubkey = contract["issuer_pubkey"]
         .as_str()
         .or_err("missing required contract.issuer_pubkey")?;
-    let pubkey = hex::decode(pubkey)?;
+    let pubkey = hex::decode(pubkey).context("invalid contract.issuer_pubkey hex")?;
 
     let msg = format_sig_msg(&asset.asset_id, &asset.fields);
 
@@ -141,16 +141,27 @@ pub fn format_sig_msg(asset_id: &sha256d::Hash, fields: &AssetFields) -> String 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bitcoin_hashes::hex::ToHex;
     use std::path::PathBuf;
 
-    fn init() {
-        stderrlog::new().verbosity(3).init(); // .unwrap();
+    #[test]
+    fn test0_init() {
+        stderrlog::new().verbosity(3).init();
     }
 
     #[test]
-    fn test_verify_asset_sig() -> Result<()> {
-        init();
+    fn test1_asset_load() -> Result<()> {
+        let asset = Asset::load(PathBuf::from("test/db/asset.json")).unwrap();
+        assert_eq!(
+            asset.asset_id.to_hex(),
+            "5a273edc116adeacc13a7e8c4e987d31385db05c411c465df91bac4cf3aa0504"
+        );
+        assert_eq!(asset.fields.ticker, Some("FOO".to_string()));
+        Ok(())
+    }
 
+    #[test]
+    fn test2_verify_asset_sig() -> Result<()> {
         let asset = Asset::load(PathBuf::from("test/db/asset.json")).unwrap();
         verify_asset_sig(&asset)?;
         Ok(())
