@@ -1,10 +1,11 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::PathBuf;
 
 use bitcoin_hashes::hex::FromHex;
 use elements::AssetId;
 use rocket::{http, State};
 use rocket_contrib::json::Json;
+use structopt::StructOpt;
 
 use crate::asset::Asset;
 use crate::errors::Result;
@@ -30,10 +31,34 @@ fn update(asset: Json<Asset>, registry: State<Registry>) -> Result<http::Status>
     Ok(http::Status::NoContent)
 }
 
-pub fn start_server(db_path: &Path, hook_cmd: Option<String>) -> Result<rocket::Rocket> {
-    let registry = Registry::load(db_path, hook_cmd)?;
+#[derive(StructOpt, Debug)]
+pub struct Config {
+    #[structopt(
+        short,
+        long,
+        parse(from_occurrences),
+        help = "Increase verbosity (up to 3)"
+    )]
+    verbose: usize,
 
-    info!("Starting Rocket web server with registry: {:?}", registry);
+    #[structopt(short, long = "db-path", help = "Path to database directory")]
+    db_path: PathBuf,
+
+    #[structopt(
+        short,
+        long = "hook-cmd",
+        help = "Hook script to run after every registry update"
+    )]
+    hook_cmd: Option<String>,
+}
+
+pub fn start_server(config: Config) -> Result<rocket::Rocket> {
+    info!("Starting Rocket web server with config: {:?}", config);
+
+    #[allow(unused_must_use)]
+    stderrlog::new().verbosity(config.verbose + 2).init();
+
+    let registry = Registry::load(&config.db_path, config.hook_cmd)?;
 
     Ok(rocket::ignite()
         .manage(registry)
@@ -52,11 +77,16 @@ mod tests {
 
     lazy_static! {
         static ref CLIENT: Client = {
-            let db_path =
-                std::env::temp_dir().join(format!("asset-registry-testdb-{}", std::process::id()));
-            std::fs::create_dir_all(&db_path).unwrap();
+            let config = Config {
+                verbose: 1,
+                hook_cmd: None,
+                db_path: std::env::temp_dir()
+                    .join(format!("asset-registry-testdb-{}", std::process::id())),
+            };
 
-            let server = start_server(&db_path, None).unwrap();
+            std::fs::create_dir_all(&config.db_path).unwrap();
+
+            let server = start_server(config).unwrap();
             Client::new(server).unwrap()
         };
     }

@@ -24,7 +24,5 @@ pub mod asset;
 pub mod entity;
 pub mod errors;
 pub mod registry;
-mod server;
+pub mod server;
 pub mod util;
-
-pub use server::start_server;
