@@ -15,7 +15,7 @@ use elements::{AssetId, OutPoint};
 use structopt::StructOpt;
 
 use asset_registry::asset::{format_sig_msg, Asset, AssetFields};
-use asset_registry::errors::{Result, ResultExt};
+use asset_registry::errors::{OptionExt, Result, ResultExt};
 
 #[derive(StructOpt, Debug)]
 struct Cli {
@@ -47,18 +47,29 @@ enum Command {
     MakeSubmission {
         #[structopt(long = "asset-id", parse(try_from_str = "AssetId::from_hex"))]
         asset_id: AssetId,
+
         #[structopt(flatten)]
         fields: AssetFields,
+
         #[structopt(
             long = "issuance-txid",
             parse(try_from_str = "sha256d::Hash::from_hex")
         )]
         issuance_txid: sha256d::Hash,
+
+        #[structopt(
+            long = "issuance-prevout",
+            help = "Outpoint used for asset issuance in txid:vout format",
+            parse(try_from_str = "parse_outpoint")
+        )]
+        issuance_prevout: OutPoint,
+
         #[structopt(long)]
         contract: String,
 
         #[structopt(long)]
         signature: String,
+
         #[structopt(long)]
         verify: bool,
     },
@@ -81,6 +92,15 @@ enum Command {
     },
 }
 
+fn parse_outpoint(arg: &str) -> Result<OutPoint> {
+    let mut s = arg.split(":");
+
+    Ok(OutPoint {
+        txid: sha256d::Hash::from_hex(s.next().req()?)?,
+        vout: s.next().req()?.parse()?,
+    })
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     stderrlog::new().verbosity(args.verbose + 2).init().unwrap();
@@ -96,6 +116,7 @@ fn main() -> Result<()> {
             asset_id,
             fields,
             issuance_txid,
+            issuance_prevout,
             contract,
             signature,
             verify,
@@ -105,7 +126,7 @@ fn main() -> Result<()> {
                 asset_id,
                 fields,
                 issuance_txid,
-                issuance_prevout: OutPoint::default(), // TODO
+                issuance_prevout,
                 contract,
                 signature,
             };
