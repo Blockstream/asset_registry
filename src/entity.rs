@@ -49,8 +49,8 @@ fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
         domain, asset_id
     );
 
-    // use a hard-coded verification page in test mode
-    #[cfg(test)]
+    // use a hard-coded verification page in testing and development modes
+    #[cfg(any(test, feature = "dev"))]
     let page_url = format!(
         "http://127.0.0.1:58712/.well-known/liquid-asset-proof-{}",
         asset_id

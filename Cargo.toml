@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Nadav Ivgi <nadav@shesek.info>"]
 edition = "2018"
 
+[features]
+default = []
+dev = []
+
 [dependencies]
 rocket = "0.4.0"
 bitcoin = { git = "https://github.com/shesek/rust-bitcoin", rev = "edge" , features = [ "serde" ] }
