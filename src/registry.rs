@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 use std::{fs, io, path};
 
-use bitcoin_hashes::{hex::ToHex, sha256d};
-use serde::Serialize;
+use bitcoin_hashes::hex::ToHex;
+use elements::AssetId;
 
 use crate::asset::Asset;
 use crate::errors::Result;
@@ -15,7 +15,7 @@ const DIR_PARTITION_LEN: usize = 2;
 #[derive(Debug)]
 pub struct Registry {
     directory: path::PathBuf,
-    assets_map: RwLock<HashMap<sha256d::Hash, Asset>>,
+    assets_map: RwLock<HashMap<AssetId, Asset>>,
 }
 
 impl Registry {
@@ -31,7 +31,7 @@ impl Registry {
                     Ok((asset.asset_id, asset))
                 })
             })
-            .collect::<Result<HashMap<sha256d::Hash, Asset>>>()?;
+            .collect::<Result<HashMap<AssetId, Asset>>>()?;
 
         Ok(Registry {
             directory: directory.to_path_buf(),
@@ -39,12 +39,12 @@ impl Registry {
         })
     }
 
-    pub fn list(&self) -> HashMap<sha256d::Hash, Asset> {
+    pub fn list(&self) -> HashMap<AssetId, Asset> {
         let assets = self.assets_map.read().unwrap();
         assets.clone() // TODO avoid clone
     }
 
-    pub fn get(&self, asset_id: &sha256d::Hash) -> Option<Asset> {
+    pub fn get(&self, asset_id: &AssetId) -> Option<Asset> {
         let assets = self.assets_map.read().unwrap();
         assets.get(asset_id).cloned() // TODO avoid clone
     }

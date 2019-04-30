@@ -11,6 +11,7 @@ use bitcoin_hashes::{
     hex::{FromHex, ToHex},
     sha256d,
 };
+use elements::{AssetId, OutPoint};
 use structopt::StructOpt;
 
 use asset_registry::asset::{format_sig_msg, Asset, AssetFields};
@@ -33,8 +34,8 @@ struct Cli {
 enum Command {
     #[structopt(name = "make-sig-message", about = "Prepare signed message format")]
     MakeSigMessage {
-        #[structopt(long = "asset-id", parse(try_from_str = "sha256d::Hash::from_hex"))]
-        asset_id: sha256d::Hash,
+        #[structopt(long = "asset-id", parse(try_from_str = "AssetId::from_hex"))]
+        asset_id: AssetId,
         #[structopt(flatten)]
         fields: AssetFields,
     },
@@ -44,8 +45,8 @@ enum Command {
         about = "Prepare asset submission to registry"
     )]
     MakeSubmission {
-        #[structopt(long = "asset-id", parse(try_from_str = "sha256d::Hash::from_hex"))]
-        asset_id: sha256d::Hash,
+        #[structopt(long = "asset-id", parse(try_from_str = "AssetId::from_hex"))]
+        asset_id: AssetId,
         #[structopt(flatten)]
         fields: AssetFields,
         #[structopt(
@@ -104,6 +105,7 @@ fn main() -> Result<()> {
                 asset_id,
                 fields,
                 issuance_txid,
+                issuance_prevout: OutPoint::default(), // TODO
                 contract,
                 signature,
             };

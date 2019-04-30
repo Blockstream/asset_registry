@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use bitcoin_hashes::{hex::FromHex, sha256d};
+use bitcoin_hashes::hex::FromHex;
+use elements::AssetId;
 use rocket::{http, State};
 use rocket_contrib::json::Json;
 
@@ -10,13 +11,13 @@ use crate::errors::Result;
 use crate::registry::Registry;
 
 #[get("/")]
-fn list(registry: State<Registry>) -> Json<HashMap<sha256d::Hash, Asset>> {
+fn list(registry: State<Registry>) -> Json<HashMap<AssetId, Asset>> {
     Json(registry.list())
 }
 
 #[get("/<id>")]
 fn get(id: String, registry: State<Registry>) -> Result<Option<Json<Asset>>> {
-    let id = sha256d::Hash::from_hex(&id)?;
+    let id = AssetId::from_hex(&id)?;
     Ok(registry.get(&id).map(Json))
 }
 
@@ -43,8 +44,8 @@ pub fn start_server(db_path: &Path) -> Result<rocket::Rocket> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::errors::OptionExt;
     use crate::entity::tests::spawn_verifier_server;
+    use crate::errors::OptionExt;
     use bitcoin_hashes::hex::ToHex;
     use rocket::local::{Client, LocalResponse};
     use std::collections::HashMap;
@@ -74,7 +75,7 @@ mod tests {
     #[test]
     fn test1_list_empty() -> Result<()> {
         let resp = CLIENT.get("/").dispatch();
-        let assets: HashMap<sha256d::Hash, Asset> = parse_json(resp)?;
+        let assets: HashMap<AssetId, Asset> = parse_json(resp)?;
         ensure!(assets.len() == 0, "shouldn't have assets yet");
         Ok(())
     }
@@ -84,14 +85,15 @@ mod tests {
         let resp = CLIENT.post("/")
             .header(http::ContentType::JSON)
             .body(r#"{
-                "asset_id": "5a273edc116adeacc13a7e8c4e987d31385db05c411c465df91bac4cf3aa0504",
+                "asset_id": "9a51761132b7399d34819c2c5d03af71794ff3aa0f78a434ddf20605545c86f2",
                 "issuance_txid": "0a93069bba360df60d77ecfff99304a9de123fecb8217348bb9d35f4a96d2fca",
+                "issuance_prevout":{"txid":"8e818b4561de8c731db7cd7a3b67784d525f96ecc7b564b82d8a01cab390b2d4","vout":1},
                 "contract": "{\"issuer_pubkey\":\"026be637f97bc191c27522577bd6fe284b54404321652fcc4eb62aa0f4cfd6d172\"}",
                 "name": "Foo Coin",
                 "ticker": "FOO",
                 "precision": 3,
                 "entity": { "domain": "test.dev" },
-                "signature": "IASSQAy3O7tyyZn+jBYIkRadDXDo4nCBSJRloZZ9RoEffGkfTc5hDn+BO0J8r1XdfTqiZW8z5UHd8sA11HyogzY="
+                "signature": "IAbn0kr44f8+HJI/qpNaXvU48b/L9mBZUli197Okg5BVYXin3xA1ilbxAvHZ00BL/0+3URIuVtAeqkl7WxWmuhY="
             }"#)
             .dispatch();
         assert_eq!(resp.status(), http::Status::NoContent);
@@ -103,31 +105,33 @@ mod tests {
         let resp = CLIENT.post("/")
             .header(http::ContentType::JSON)
             .body(r#"{
-                "asset_id": "5a273edc116adeacc13a7e8c4e987d31385db05c411c465df91bac4cf3aa0504",
+                "asset_id": "9a51761132b7399d34819c2c5d03af71794ff3aa0f78a434ddf20605545c86f2",
                 "issuance_txid": "0a93069bba360df60d77ecfff99304a9de123fecb8217348bb9d35f4a96d2fca",
+                "issuance_prevout":{"txid":"8e818b4561de8c731db7cd7a3b67784d525f96ecc7b564b82d8a01cab390b2d4","vout":1},
                 "contract": "{\"issuer_pubkey\":\"026be637f97bc191c27522577bd6fe284b54404321652fcc4eb62aa0f4cfd6d172\"}",
                 "name": "Foo Coin",
                 "ticker": "FOX",
                 "precision": 3,
-                "entity": { "domain": "foo.com" },
-                "signature": "H5P8HDEUBlZUAqp7M+v6N5sakwbFlm0XSioTMwAizBkyMt82uK7EwdzDugP9Z1KbYkllQiHUO8Y0F5EiEMF/NyY="
+                "entity": { "domain": "test.dev" },
+                "signature": "IAbn0kr44f8+HJI/qpNaXvU48b/L9mBZUli197Okg5BVYXin3xA1ilbxAvHZ00BL/0+3URIuVtAeqkl7WxWmuhY="
             }"#)
             .dispatch();
         assert_ne!(resp.status(), http::Status::Ok);
+        assert_ne!(resp.status(), http::Status::NoContent);
         Ok(())
     }
 
     #[test]
     fn test4_get() -> Result<()> {
         let resp = CLIENT
-            .get("/5a273edc116adeacc13a7e8c4e987d31385db05c411c465df91bac4cf3aa0504")
+            .get("/9a51761132b7399d34819c2c5d03af71794ff3aa0f78a434ddf20605545c86f2")
             .dispatch();
         let asset: Asset = parse_json(resp)?;
         debug!("asset: {:?}", asset);
 
         assert_eq!(
             asset.id().to_hex(),
-            "5a273edc116adeacc13a7e8c4e987d31385db05c411c465df91bac4cf3aa0504"
+            "9a51761132b7399d34819c2c5d03af71794ff3aa0f78a434ddf20605545c86f2"
         );
         assert_eq!(asset.name(), "Foo Coin");
         Ok(())
@@ -136,7 +140,7 @@ mod tests {
     #[test]
     fn test5_list_with_asset() -> Result<()> {
         let resp = CLIENT.get("/").dispatch();
-        let assets: HashMap<sha256d::Hash, Asset> = parse_json(resp)?;
+        let assets: HashMap<AssetId, Asset> = parse_json(resp)?;
         debug!("assets: {:?}", assets);
 
         assert!(assets.len() == 1, "should have one asset");
@@ -144,7 +148,7 @@ mod tests {
         let asset_id = assets.keys().next().unwrap();
         assert_eq!(
             asset_id.to_hex(),
-            "5a273edc116adeacc13a7e8c4e987d31385db05c411c465df91bac4cf3aa0504"
+            "9a51761132b7399d34819c2c5d03af71794ff3aa0f78a434ddf20605545c86f2"
         );
         assert_eq!(assets.get(asset_id).unwrap().name(), "Foo Coin");
 

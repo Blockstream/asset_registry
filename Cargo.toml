@@ -6,9 +6,9 @@ edition = "2018"
 
 [dependencies]
 rocket = "0.4.0"
-bitcoin = "0.18.0"
-elements = "0.7.0"
-bitcoin_hashes = { version = "0.3", features = [ "serde" ] }
+bitcoin = { git = "https://github.com/shesek/rust-bitcoin", rev = "edge" , features = [ "serde" ] }
+elements = { git = "https://github.com/shesek/rust-elements", rev = "edge", features = [ "serde" ]  }
+bitcoin_hashes = { git = "https://github.com/stevenroose/bitcoin_hashes", rev = "bd75e6cfc90efd2c9e3999adf0d92e1a41866cbe", features = [ "serde" ] }
 failure = "0.1.5"
 hex = "0.3.2"
 serde = "1.0"

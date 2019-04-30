@@ -1,6 +1,7 @@
 use std::{fs, path};
 
-use bitcoin_hashes::sha256d;
+use bitcoin_hashes::{hex::ToHex, sha256, sha256d, Hash};
+use elements::{AssetId, OutPoint};
 use failure::ResultExt;
 use regex::Regex;
 use secp256k1::Secp256k1;
@@ -22,9 +23,11 @@ base64_serde_type!(Base64, base64::STANDARD);
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Asset {
-    pub asset_id: sha256d::Hash,
-    pub issuance_txid: sha256d::Hash,
+    pub asset_id: AssetId,
     pub contract: String,
+
+    pub issuance_txid: sha256d::Hash,
+    pub issuance_prevout: OutPoint,
 
     //#[serde(with = "Base64")]
     //issuer_pubkey: [u8; 33],
@@ -79,7 +82,7 @@ impl Asset {
         Ok(serde_json::from_str(&contents)?)
     }
 
-    pub fn id(&self) -> &sha256d::Hash {
+    pub fn id(&self) -> &AssetId {
         &self.asset_id
     }
 
@@ -105,12 +108,22 @@ impl Asset {
             ensure!((0 < precision && precision <= 8), "precision out of range");
         }
 
+        verify_asset_commitment(self).context("failed verifying issuance commitment")?;
         verify_asset_sig(self).context("failed verifying signature")?;
 
         AssetEntity::verify_link(self).context("failed verifying linked entity")?;
 
         Ok(())
     }
+}
+
+fn verify_asset_commitment(asset: &Asset) -> Result<()> {
+    let contract_hash = sha256::Hash::hash(&asset.contract.as_bytes());
+    let entropy = AssetId::generate_asset_entropy(asset.issuance_prevout, contract_hash);
+    let asset_id = AssetId::from_entropy(entropy);
+
+    ensure!(asset.asset_id == asset_id, "invalid asset commitment");
+    Ok(())
 }
 
 fn verify_asset_sig(asset: &Asset) -> Result<()> {
@@ -128,11 +141,11 @@ fn verify_asset_sig(asset: &Asset) -> Result<()> {
     Ok(())
 }
 
-pub fn format_sig_msg(asset_id: &sha256d::Hash, fields: &AssetFields) -> String {
+pub fn format_sig_msg(asset_id: &AssetId, fields: &AssetFields) -> String {
     serde_json::to_string(&(
         "elements-asset-assoc",
         0, // version number for msg format
-        asset_id,
+        asset_id.to_hex(),
         fields,
     ))
     .unwrap()
@@ -154,7 +167,7 @@ mod tests {
         let asset = Asset::load(PathBuf::from("test/db/asset.json")).unwrap();
         assert_eq!(
             asset.asset_id.to_hex(),
-            "5a273edc116adeacc13a7e8c4e987d31385db05c411c465df91bac4cf3aa0504"
+            "9a51761132b7399d34819c2c5d03af71794ff3aa0f78a434ddf20605545c86f2"
         );
         assert_eq!(asset.fields.ticker, Some("FOO".to_string()));
         Ok(())
