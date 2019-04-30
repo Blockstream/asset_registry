@@ -21,8 +21,16 @@ struct Config {
         help = "Increase verbosity (up to 3)"
     )]
     verbose: usize,
+
     #[structopt(short, long = "db-path", help = "Path to database directory")]
     db_path: PathBuf,
+
+    #[structopt(
+        short,
+        long = "hook-cmd",
+        help = "Hook script to run after every registry update"
+    )]
+    hook_cmd: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -33,7 +41,7 @@ fn main() -> Result<()> {
         .unwrap();
     info!("Server config: {:?}", config);
 
-    start_server(&config.db_path)?.launch();
+    start_server(&config.db_path, config.hook_cmd)?.launch();
     info!("HTTP server started");
 
     Ok(())

@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 use std::sync::RwLock;
-use std::{fs, io, path};
+use std::{fs, path, process::Command};
 
 use bitcoin_hashes::hex::ToHex;
 use elements::AssetId;
 
 use crate::asset::Asset;
-use crate::errors::{OptionExt, Result};
+use crate::errors::{OptionExt, Result, ResultExt};
 
 // length of asset id prefix to use for sub-directory partitioning
 // (in number of hex characters, not bytes)
@@ -15,11 +15,12 @@ const DIR_PARTITION_LEN: usize = 2;
 #[derive(Debug)]
 pub struct Registry {
     directory: path::PathBuf,
+    hook_cmd: Option<String>,
     assets_map: RwLock<HashMap<AssetId, Asset>>,
 }
 
 impl Registry {
-    pub fn load(directory: &path::Path) -> Result<Self> {
+    pub fn load(directory: &path::Path, hook_cmd: Option<String>) -> Result<Self> {
         let mut assets_map = HashMap::new();
 
         for subdir in fs::read_dir(&directory)? {
@@ -38,6 +39,7 @@ impl Registry {
 
         Ok(Registry {
             directory: directory.to_path_buf(),
+            hook_cmd,
             assets_map: RwLock::new(assets_map),
         })
     }
@@ -55,6 +57,8 @@ impl Registry {
     pub fn write(&self, asset: Asset) -> Result<()> {
         asset.verify()?;
 
+        let asset_id = asset.asset_id;
+
         {
             let mut assets = self.assets_map.write().unwrap();
 
@@ -67,10 +71,11 @@ impl Registry {
 
             fs::write(dir.join(name), serde_json::to_string(&asset)?)?;
 
-            assets.insert(asset.asset_id, asset);
+            assets.insert(asset_id, asset);
         } // drop write lock
 
-        self.update_index()?;
+        self.update_index().context("failed updating index")?;
+        self.exec_hook(&asset_id).context("hook script failed")?;
 
         Ok(())
     }
@@ -80,5 +85,20 @@ impl Registry {
             self.directory.join("index.json"),
             serde_json::to_string(&self.assets_map)?,
         )?)
+    }
+
+    pub fn exec_hook(&self, asset_id: &AssetId) -> Result<()> {
+        if let Some(cmd) = &self.hook_cmd {
+            debug!("running hook: {}", cmd);
+
+            let output = Command::new(cmd)
+                .current_dir(&self.directory)
+                .arg(asset_id.to_hex())
+                .output()?;
+            debug!("hook output: {:?}", output);
+
+            ensure!(output.status.success(), "hook script failed");
+        }
+        Ok(())
     }
 }

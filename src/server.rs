@@ -30,8 +30,8 @@ fn update(asset: Json<Asset>, registry: State<Registry>) -> Result<http::Status>
     Ok(http::Status::NoContent)
 }
 
-pub fn start_server(db_path: &Path) -> Result<rocket::Rocket> {
-    let registry = Registry::load(db_path)?;
+pub fn start_server(db_path: &Path, hook_cmd: Option<String>) -> Result<rocket::Rocket> {
+    let registry = Registry::load(db_path, hook_cmd)?;
 
     info!("Starting Rocket web server with registry: {:?}", registry);
 
@@ -56,7 +56,7 @@ mod tests {
                 std::env::temp_dir().join(format!("asset-registry-testdb-{}", std::process::id()));
             std::fs::create_dir_all(&db_path).unwrap();
 
-            let server = start_server(&db_path).unwrap();
+            let server = start_server(&db_path, None).unwrap();
             Client::new(server).unwrap()
         };
     }
