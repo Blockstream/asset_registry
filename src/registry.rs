@@ -6,7 +6,7 @@ use bitcoin_hashes::hex::ToHex;
 use elements::AssetId;
 
 use crate::asset::Asset;
-use crate::errors::Result;
+use crate::errors::{OptionExt, Result};
 
 // length of asset id prefix to use for sub-directory partitioning
 // (in number of hex characters, not bytes)
@@ -20,18 +20,21 @@ pub struct Registry {
 
 impl Registry {
     pub fn load(directory: &path::Path) -> Result<Self> {
-        // read all the files in all the sub-directories within `directory`
-        let assets_map = fs::read_dir(&directory)?
-            .map(|entry| fs::read_dir(entry?.path()))
-            .collect::<io::Result<Vec<fs::ReadDir>>>()?
-            .into_iter()
-            .flat_map(|files| {
-                files.map(|e| {
-                    let asset = Asset::load(e?.path())?;
-                    Ok((asset.asset_id, asset))
-                })
-            })
-            .collect::<Result<HashMap<AssetId, Asset>>>()?;
+        let mut assets_map = HashMap::new();
+
+        for subdir in fs::read_dir(&directory)? {
+            let subdir = subdir?;
+            if subdir.file_type()?.is_dir() && &subdir.file_name().to_str().req()?[0..1] != "." {
+                for file in fs::read_dir(subdir.path())? {
+                    let file = file?;
+                    let asset = Asset::load(file.path())?;
+                    assets_map.insert(asset.asset_id, asset);
+                }
+            }
+        }
+
+        // TODO after we switch over to static file serving via nginx, we no longer need the
+        // in-memory assets map
 
         Ok(Registry {
             directory: directory.to_path_buf(),
