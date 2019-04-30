@@ -12,6 +12,7 @@ use bitcoin_hashes::{
     sha256d,
 };
 use elements::{AssetId, OutPoint};
+use serde_json::Value;
 use structopt::StructOpt;
 
 use asset_registry::asset::{format_sig_msg, Asset, AssetFields};
@@ -65,7 +66,7 @@ enum Command {
         issuance_prevout: OutPoint,
 
         #[structopt(long)]
-        contract: String,
+        contract: Value,
 
         #[structopt(long)]
         signature: String,

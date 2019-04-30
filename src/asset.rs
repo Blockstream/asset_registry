@@ -24,7 +24,7 @@ base64_serde_type!(Base64, base64::STANDARD);
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Asset {
     pub asset_id: AssetId,
-    pub contract: String,
+    pub contract: Value,
 
     pub issuance_txid: sha256d::Hash,
     pub issuance_prevout: OutPoint,
@@ -95,9 +95,6 @@ impl Asset {
     }
 
     pub fn verify(&self) -> Result<()> {
-        // TODO verify asset_id, issuance_txid, associated contract_hash and wrapped issuer_pubkey
-        // TODO verify H(contract) is committed to in the asset entropy
-        // TODO verify top-level issuer_pubkey matches contract
         // XXX how should updates be verified? should we require a sequence number or other form of anti-replay?
 
         ensure!(RE_NAME.is_match(&self.fields.name), "invalid name");
@@ -118,7 +115,10 @@ impl Asset {
 }
 
 fn verify_asset_commitment(asset: &Asset) -> Result<()> {
-    let contract_hash = sha256::Hash::hash(&asset.contract.as_bytes());
+    // json keys are sorted lexicographically
+    let contract_str = serde_json::to_string(&asset.contract)?;
+    let contract_hash = sha256::Hash::hash(&contract_str.as_bytes());
+
     let entropy = AssetId::generate_asset_entropy(asset.issuance_prevout, contract_hash);
     let asset_id = AssetId::from_entropy(entropy);
 
@@ -127,9 +127,7 @@ fn verify_asset_commitment(asset: &Asset) -> Result<()> {
 }
 
 fn verify_asset_sig(asset: &Asset) -> Result<()> {
-    let contract: Value = serde_json::from_str(&asset.contract).context("invalid contract json")?;
-
-    let pubkey = contract["issuer_pubkey"]
+    let pubkey = asset.contract["issuer_pubkey"]
         .as_str()
         .or_err("missing required contract.issuer_pubkey")?;
     let pubkey = hex::decode(pubkey).context("invalid contract.issuer_pubkey hex")?;
