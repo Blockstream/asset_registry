@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 use bitcoin_hashes::hex::FromHex;
@@ -13,15 +12,10 @@ use crate::chain::ChainQuery;
 use crate::errors::Result;
 use crate::registry::Registry;
 
-#[get("/")]
-fn list(registry: State<Registry>) -> Json<HashMap<AssetId, Asset>> {
-    Json(registry.list())
-}
-
 #[get("/<id>")]
 fn get(id: String, registry: State<Registry>) -> Result<Option<Json<Asset>>> {
     let id = AssetId::from_hex(&id)?;
-    Ok(registry.get(&id).map(Json))
+    Ok(registry.load(&id)?.map(Json))
 }
 
 #[post("/", format = "application/json", data = "<asset>")]
@@ -81,11 +75,11 @@ pub fn start_server(config: Config) -> Result<rocket::Rocket> {
     stderrlog::new().verbosity(config.verbose + 2).init();
 
     let chain = config.esplora_url.map(ChainQuery::new);
-    let registry = Registry::load(&config.db_path, chain, config.hook_cmd)?;
+    let registry = Registry::new(&config.db_path, chain, config.hook_cmd);
 
     Ok(rocket::ignite()
         .manage(registry)
-        .mount("/", routes![list, get, update]))
+        .mount("/", routes![get, update]))
 }
 
 // needs to be run with --test-threads 1
@@ -96,7 +90,6 @@ mod tests {
     use crate::errors::OptionExt;
     use bitcoin_hashes::hex::ToHex;
     use rocket::local::{Client, LocalResponse};
-    use std::collections::HashMap;
 
     lazy_static! {
         static ref CLIENT: Client = {
@@ -124,14 +117,6 @@ mod tests {
     fn test0_init() {
         stderrlog::new().verbosity(3).init();
         spawn_verifier_server();
-    }
-
-    #[test]
-    fn test1_list_empty() -> Result<()> {
-        let resp = CLIENT.get("/").dispatch();
-        let assets: HashMap<AssetId, Asset> = parse_json(resp)?;
-        ensure!(assets.len() == 0, "shouldn't have assets yet");
-        Ok(())
     }
 
     #[test]
@@ -190,23 +175,4 @@ mod tests {
         assert_eq!(asset.name(), "Foo Coin");
         Ok(())
     }
-
-    #[test]
-    fn test5_list_with_asset() -> Result<()> {
-        let resp = CLIENT.get("/").dispatch();
-        let assets: HashMap<AssetId, Asset> = parse_json(resp)?;
-        debug!("assets: {:?}", assets);
-
-        assert!(assets.len() == 1, "should have one asset");
-
-        let asset_id = assets.keys().next().unwrap();
-        assert_eq!(
-            asset_id.to_hex(),
-            "9a51761132b7399d34819c2c5d03af71794ff3aa0f78a434ddf20605545c86f2"
-        );
-        assert_eq!(assets.get(asset_id).unwrap().name(), "Foo Coin");
-
-        Ok(())
-    }
-
 }

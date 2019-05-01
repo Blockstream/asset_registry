@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::sync::RwLock;
+use std::sync::{Arc, Mutex};
 use std::{fs, path, process::Command};
 
 use bitcoin_hashes::hex::ToHex;
@@ -18,89 +17,66 @@ pub struct Registry {
     directory: path::PathBuf,
     chain: Option<ChainQuery>,
     hook_cmd: Option<String>,
-    assets_map: RwLock<HashMap<AssetId, Asset>>,
+    write_lock: Arc<Mutex<()>>,
 }
 
 impl Registry {
-    pub fn load(
+    pub fn new(
         directory: &path::Path,
         chain: Option<ChainQuery>,
         hook_cmd: Option<String>,
-    ) -> Result<Self> {
-        let mut assets_map = HashMap::new();
-
-        for subdir in fs::read_dir(&directory)? {
-            let subdir = subdir?;
-            if subdir.file_type()?.is_dir() && &subdir.file_name().to_str().req()?[0..1] != "." {
-                for file in fs::read_dir(subdir.path())? {
-                    let file = file?;
-                    let asset = Asset::load(file.path())?;
-                    assets_map.insert(asset.asset_id, asset);
-                }
-            }
-        }
-
-        // TODO after we switch over to static file serving via nginx, we no longer need the
-        // in-memory assets map
-
-        Ok(Registry {
+    ) -> Self {
+        Registry {
             directory: directory.to_path_buf(),
             chain,
             hook_cmd,
-            assets_map: RwLock::new(assets_map),
+            write_lock: Arc::new(Mutex::new(())),
+        }
+    }
+
+    pub fn load(&self, asset_id: &AssetId) -> Result<Option<Asset>> {
+        let name = format!("{}.json", asset_id.to_hex());
+        let subdir = self.directory.join(&name[0..DIR_PARTITION_LEN]);
+        let path = subdir.join(name);
+
+        Ok(if path.exists() {
+            Some(Asset::load(path)?)
+        } else {
+            None
         })
     }
 
-    pub fn list(&self) -> HashMap<AssetId, Asset> {
-        let assets = self.assets_map.read().unwrap();
-        assets.clone() // TODO avoid clone
-    }
-
-    pub fn get(&self, asset_id: &AssetId) -> Option<Asset> {
-        let assets = self.assets_map.read().unwrap();
-        assets.get(asset_id).cloned() // TODO avoid clone
-    }
-
     pub fn write(&self, asset: Asset) -> Result<()> {
+        let _lock = self.write_lock.lock().unwrap();
+
         asset.verify(self.chain.as_ref())?;
 
-        let asset_id = asset.asset_id;
+        let name = format!("{}.json", asset.asset_id.to_hex());
+        let subdir = self.directory.join(&name[0..DIR_PARTITION_LEN]);
+        let path = subdir.join(name);
 
-        {
-            let mut assets = self.assets_map.write().unwrap();
+        if !subdir.exists() {
+            fs::create_dir(&subdir)?;
+        }
 
-            let name = format!("{}.json", asset.asset_id.to_hex());
-            let dir = self.directory.join(&name[0..DIR_PARTITION_LEN]);
+        fs::write(&path, serde_json::to_string(&asset)?)?;
 
-            if !dir.exists() {
-                fs::create_dir(&dir)?;
-            }
+        // XXX update index? or let the hook script take care of that?
 
-            fs::write(dir.join(name), serde_json::to_string(&asset)?)?;
-
-            assets.insert(asset_id, asset);
-        } // drop write lock
-
-        self.update_index().context("failed updating index")?;
-        self.exec_hook(&asset_id).context("hook script failed")?;
+        self.exec_hook(&asset.asset_id, &path)
+            .context("hook script failed")?;
 
         Ok(())
     }
 
-    pub fn update_index(&self) -> Result<()> {
-        Ok(fs::write(
-            self.directory.join("index.json"),
-            serde_json::to_string(&self.assets_map)?,
-        )?)
-    }
-
-    pub fn exec_hook(&self, asset_id: &AssetId) -> Result<()> {
+    pub fn exec_hook(&self, asset_id: &AssetId, asset_path: &path::Path) -> Result<()> {
         if let Some(cmd) = &self.hook_cmd {
             debug!("running hook: {}", cmd);
 
             let output = Command::new(cmd)
                 .current_dir(&self.directory)
                 .arg(asset_id.to_hex())
+                .arg(asset_path.to_str().req()?)
                 .output()?;
             debug!("hook output: {:?}", output);
 
