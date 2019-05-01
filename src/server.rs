@@ -9,6 +9,7 @@ use rocket_contrib::json::Json;
 use structopt::StructOpt;
 
 use crate::asset::Asset;
+use crate::chain::ChainQuery;
 use crate::errors::Result;
 use crate::registry::Registry;
 
@@ -61,6 +62,16 @@ pub struct Config {
         )
     )]
     hook_cmd: Option<String>,
+
+    #[cfg_attr(
+        feature = "cli",
+        structopt(
+            short,
+            long = "esplora-url",
+            help = "url for querying chain state using the esplora api"
+        )
+    )]
+    esplora_url: Option<String>,
 }
 
 pub fn start_server(config: Config) -> Result<rocket::Rocket> {
@@ -69,7 +80,8 @@ pub fn start_server(config: Config) -> Result<rocket::Rocket> {
     #[allow(unused_must_use)]
     stderrlog::new().verbosity(config.verbose + 2).init();
 
-    let registry = Registry::load(&config.db_path, config.hook_cmd)?;
+    let chain = config.esplora_url.map(ChainQuery::new);
+    let registry = Registry::load(&config.db_path, chain, config.hook_cmd)?;
 
     Ok(rocket::ignite()
         .manage(registry)
@@ -91,6 +103,7 @@ mod tests {
             let config = Config {
                 verbose: 1,
                 hook_cmd: None,
+                esplora_url: None,
                 db_path: std::env::temp_dir()
                     .join(format!("asset-registry-testdb-{}", std::process::id())),
             };
@@ -127,7 +140,7 @@ mod tests {
             .header(http::ContentType::JSON)
             .body(r#"{
                 "asset_id": "9a51761132b7399d34819c2c5d03af71794ff3aa0f78a434ddf20605545c86f2",
-                "issuance_txid": "0a93069bba360df60d77ecfff99304a9de123fecb8217348bb9d35f4a96d2fca",
+                "issuance_tx": {"txid":"77f21099c47646b30a9978a1a39acf658f6eb9bd68f677d23f132c587bb93836", "vin":0},
                 "issuance_prevout":{"txid":"8e818b4561de8c731db7cd7a3b67784d525f96ecc7b564b82d8a01cab390b2d4","vout":1},
                 "contract": {"issuer_pubkey":"026be637f97bc191c27522577bd6fe284b54404321652fcc4eb62aa0f4cfd6d172"},
                 "name": "Foo Coin",
@@ -147,7 +160,7 @@ mod tests {
             .header(http::ContentType::JSON)
             .body(r#"{
                 "asset_id": "9a51761132b7399d34819c2c5d03af71794ff3aa0f78a434ddf20605545c86f2",
-                "issuance_txid": "0a93069bba360df60d77ecfff99304a9de123fecb8217348bb9d35f4a96d2fca",
+                "issuance_tx": {"txid":"77f21099c47646b30a9978a1a39acf658f6eb9bd68f677d23f132c587bb93836", "vin":0},
                 "issuance_prevout":{"txid":"8e818b4561de8c731db7cd7a3b67784d525f96ecc7b564b82d8a01cab390b2d4","vout":1},
                 "contract": {"issuer_pubkey":"026be637f97bc191c27522577bd6fe284b54404321652fcc4eb62aa0f4cfd6d172"},
                 "name": "Foo Coin",

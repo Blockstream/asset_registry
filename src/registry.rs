@@ -6,6 +6,7 @@ use bitcoin_hashes::hex::ToHex;
 use elements::AssetId;
 
 use crate::asset::Asset;
+use crate::chain::ChainQuery;
 use crate::errors::{OptionExt, Result, ResultExt};
 
 // length of asset id prefix to use for sub-directory partitioning
@@ -15,12 +16,17 @@ const DIR_PARTITION_LEN: usize = 2;
 #[derive(Debug)]
 pub struct Registry {
     directory: path::PathBuf,
+    chain: Option<ChainQuery>,
     hook_cmd: Option<String>,
     assets_map: RwLock<HashMap<AssetId, Asset>>,
 }
 
 impl Registry {
-    pub fn load(directory: &path::Path, hook_cmd: Option<String>) -> Result<Self> {
+    pub fn load(
+        directory: &path::Path,
+        chain: Option<ChainQuery>,
+        hook_cmd: Option<String>,
+    ) -> Result<Self> {
         let mut assets_map = HashMap::new();
 
         for subdir in fs::read_dir(&directory)? {
@@ -39,6 +45,7 @@ impl Registry {
 
         Ok(Registry {
             directory: directory.to_path_buf(),
+            chain,
             hook_cmd,
             assets_map: RwLock::new(assets_map),
         })
@@ -55,7 +62,7 @@ impl Registry {
     }
 
     pub fn write(&self, asset: Asset) -> Result<()> {
-        asset.verify()?;
+        asset.verify(self.chain.as_ref())?;
 
         let asset_id = asset.asset_id;
 

@@ -17,6 +17,7 @@ use structopt::StructOpt;
 
 use asset_registry::asset::{format_sig_msg, Asset, AssetFields};
 use asset_registry::errors::{OptionExt, Result, ResultExt};
+use asset_registry::util::TxInput;
 
 #[derive(StructOpt, Debug)]
 struct Cli {
@@ -126,7 +127,10 @@ fn main() -> Result<()> {
             let asset = Asset {
                 asset_id,
                 fields,
-                issuance_txid,
+                issuance_tx: TxInput {
+                    txid: issuance_txid,
+                    vin: 0,
+                }, // TODO
                 issuance_prevout,
                 contract,
                 signature,
@@ -135,7 +139,8 @@ fn main() -> Result<()> {
             println!("{}", serde_json::to_string(&asset)?);
 
             if verify {
-                asset.verify()?;
+                // TODO verify with ChainQuery
+                asset.verify(None)?;
                 info!("Asset verified successfully");
             }
         }
@@ -147,7 +152,7 @@ fn main() -> Result<()> {
                 let asset: Asset = serde_json::from_str(&json).context("invalid asset json")?;
                 debug!("verifying asset: {:?}", asset);
 
-                match asset.verify() {
+                match asset.verify(None) {
                     Ok(()) => println!("{},true", asset.id().to_hex()),
                     Err(err) => {
                         warn!("asset verification failed: {:}", err);

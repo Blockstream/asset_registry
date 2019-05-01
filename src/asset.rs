@@ -1,6 +1,6 @@
 use std::{fs, path};
 
-use bitcoin_hashes::{hex::ToHex, sha256, sha256d, Hash};
+use bitcoin_hashes::{hex::ToHex, sha256, Hash};
 use elements::{AssetId, OutPoint};
 use failure::ResultExt;
 use regex::Regex;
@@ -9,9 +9,10 @@ use serde_json::Value;
 #[cfg(feature = "cli")]
 use structopt::StructOpt;
 
+use crate::chain::{verify_asset_issuance_tx, ChainQuery};
 use crate::entity::AssetEntity;
 use crate::errors::{OptionExt, Result};
-use crate::util::verify_bitcoin_msg;
+use crate::util::{verify_bitcoin_msg, TxInput};
 
 lazy_static! {
     static ref EC: Secp256k1<secp256k1::VerifyOnly> = Secp256k1::verification_only();
@@ -27,7 +28,7 @@ pub struct Asset {
     pub asset_id: AssetId,
     pub contract: Value,
 
-    pub issuance_txid: sha256d::Hash,
+    pub issuance_tx: TxInput,
     pub issuance_prevout: OutPoint,
 
     //#[serde(with = "Base64")]
@@ -109,7 +110,7 @@ impl Asset {
         &self.fields.entity
     }
 
-    pub fn verify(&self) -> Result<()> {
+    pub fn verify(&self, chain: Option<&ChainQuery>) -> Result<()> {
         // XXX how should updates be verified? should we require a sequence number or other form of anti-replay?
 
         ensure!(RE_NAME.is_match(&self.fields.name), "invalid name");
@@ -123,21 +124,38 @@ impl Asset {
         verify_asset_commitment(self).context("failed verifying issuance commitment")?;
         verify_asset_sig(self).context("failed verifying signature")?;
 
+        if let Some(chain) = chain {
+            let _blockid = verify_asset_issuance_tx(chain, self)
+                .context("failed verifying on-chain issuance")?;
+            // XXX keep block id?
+        }
+
         AssetEntity::verify_link(self).context("failed verifying linked entity")?;
 
         Ok(())
     }
+
+    // XXX change to sha256d?
+    pub fn contract_hash(&self) -> Result<sha256::Hash> {
+        // json keys are sorted lexicographically
+        let contract_str = serde_json::to_string(&self.contract)?;
+        Ok(sha256::Hash::hash(&contract_str.as_bytes()))
+    }
 }
 
 fn verify_asset_commitment(asset: &Asset) -> Result<()> {
-    // json keys are sorted lexicographically
-    let contract_str = serde_json::to_string(&asset.contract)?;
-    let contract_hash = sha256::Hash::hash(&contract_str.as_bytes());
-
+    let contract_hash = asset.contract_hash()?;
     let entropy = AssetId::generate_asset_entropy(asset.issuance_prevout, contract_hash);
     let asset_id = AssetId::from_entropy(entropy);
 
     ensure!(asset.asset_id == asset_id, "invalid asset commitment");
+    debug!(
+        "verified asset commitment, asset id {} commits to prevout {:?} and contract hash {} ({:?})",
+        asset_id.to_hex(),
+        asset.issuance_prevout,
+        contract_hash.to_hex(),
+        asset.contract,
+    );
     Ok(())
 }
 
@@ -151,6 +169,11 @@ fn verify_asset_sig(asset: &Asset) -> Result<()> {
 
     verify_bitcoin_msg(&EC, &pubkey, &asset.signature, &msg)?;
 
+    debug!(
+        "verified asset signature, issuer pubkey {} signed contract {:?}",
+        hex::encode(pubkey),
+        asset.contract,
+    );
     Ok(())
 }
 

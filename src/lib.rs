@@ -13,6 +13,7 @@ extern crate serde_derive;
 #[macro_use]
 extern crate rocket;
 #[cfg(feature = "server")]
+#[macro_use]
 extern crate rocket_contrib;
 #[macro_use]
 extern crate lazy_static;
@@ -25,6 +26,7 @@ extern crate regex;
 extern crate structopt;
 
 pub mod asset;
+pub mod chain;
 #[cfg(feature = "client")]
 pub mod client;
 pub mod entity;

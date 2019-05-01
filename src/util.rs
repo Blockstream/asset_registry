@@ -9,6 +9,12 @@ use crate::errors::Result;
 
 static MSG_SIGN_PREFIX: &'static [u8] = b"\x18Bitcoin Signed Message:\n";
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TxInput {
+    pub txid: sha256d::Hash,
+    pub vin: usize,
+}
+
 pub fn verify_bitcoin_msg(
     ec: &Secp256k1<secp256k1::VerifyOnly>,
     pubkey: &[u8],
