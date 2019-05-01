@@ -70,18 +70,18 @@ impl ChainQuery {
 
 pub fn verify_asset_issuance_tx(chain: &ChainQuery, asset: &Asset) -> Result<BlockId> {
     let tx = chain
-        .get_tx(&asset.issuance_tx.txid)?
+        .get_tx(&asset.issuance_txin.txid)?
         .or_err("issuance transaction not found")?;
     let txin = tx
         .input
-        .get(asset.issuance_tx.vin)
+        .get(asset.issuance_txin.vin)
         .or_err("issuance transaction missing input")?;
     let blockid = chain
-        .get_tx_status(&asset.issuance_tx.txid)?
+        .get_tx_status(&asset.issuance_txin.txid)?
         .or_err("issuance transaction unconfirmed")?;
 
     ensure!(
-        tx.txid() == asset.issuance_tx.txid,
+        tx.txid() == asset.issuance_txin.txid,
         "issuance txid mismatch"
     );
     ensure!(txin.has_issuance(), "input has no issuance");
@@ -104,10 +104,9 @@ pub fn verify_asset_issuance_tx(chain: &ChainQuery, asset: &Asset) -> Result<Blo
     );
 
     debug!(
-        "verified on-chain issuance of asset {}, tx {}:{}",
+        "verified on-chain issuance of asset {}, tx {:?}",
         asset.asset_id.to_hex(),
-        asset.issuance_tx.txid.to_hex(),
-        asset.issuance_tx.vin
+        asset.issuance_txin,
     );
 
     Ok(blockid)

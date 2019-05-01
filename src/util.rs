@@ -1,5 +1,7 @@
+use std::fmt;
+
 use bitcoin::consensus::encode::{serialize, VarInt};
-use bitcoin_hashes::{sha256d, Hash};
+use bitcoin_hashes::{hex::ToHex, sha256d, Hash};
 use failure::ResultExt;
 use idna::uts46;
 use regex::RegexSet;
@@ -9,10 +11,16 @@ use crate::errors::Result;
 
 static MSG_SIGN_PREFIX: &'static [u8] = b"\x18Bitcoin Signed Message:\n";
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct TxInput {
     pub txid: sha256d::Hash,
     pub vin: usize,
+}
+
+impl fmt::Debug for TxInput {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "TxInput {}:{}", self.txid.to_hex(), self.vin)
+    }
 }
 
 pub fn verify_bitcoin_msg(

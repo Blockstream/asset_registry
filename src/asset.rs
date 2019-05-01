@@ -28,7 +28,7 @@ pub struct Asset {
     pub asset_id: AssetId,
     pub contract: Value,
 
-    pub issuance_tx: TxInput,
+    pub issuance_txin: TxInput,
     pub issuance_prevout: OutPoint,
 
     //#[serde(with = "Base64")]

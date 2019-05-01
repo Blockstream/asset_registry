@@ -16,6 +16,7 @@ use serde_json::Value;
 use structopt::StructOpt;
 
 use asset_registry::asset::{format_sig_msg, Asset, AssetFields};
+use asset_registry::chain::ChainQuery;
 use asset_registry::errors::{OptionExt, Result, ResultExt};
 use asset_registry::util::TxInput;
 
@@ -54,10 +55,11 @@ enum Command {
         fields: AssetFields,
 
         #[structopt(
-            long = "issuance-txid",
-            parse(try_from_str = "sha256d::Hash::from_hex")
+            long = "issuance-txin",
+            help = "The issuance transaction input in txid:vin format",
+            parse(try_from_str = "parse_input")
         )]
-        issuance_txid: sha256d::Hash,
+        issuance_txin: TxInput,
 
         #[structopt(
             long = "issuance-prevout",
@@ -72,7 +74,10 @@ enum Command {
         #[structopt(long)]
         signature: String,
 
-        #[structopt(long)]
+        #[structopt(
+            long,
+            help = "verify prepared asset (except for on-chain status, use verify-asset with --esplora-url for that)"
+        )]
         verify: bool,
     },
 
@@ -83,6 +88,17 @@ enum Command {
             help = "exit with an error code if any of the veritifications fail"
         )]
         fail: bool,
+
+        #[cfg_attr(
+            feature = "cli",
+            structopt(
+                short,
+                long = "esplora-url",
+                help = "url for querying chain state using the esplora api"
+            )
+        )]
+        esplora_url: Option<String>,
+
         jsons: Vec<String>,
     },
 
@@ -103,6 +119,15 @@ fn parse_outpoint(arg: &str) -> Result<OutPoint> {
     })
 }
 
+fn parse_input(arg: &str) -> Result<TxInput> {
+    let mut s = arg.split(":");
+
+    Ok(TxInput {
+        txid: sha256d::Hash::from_hex(s.next().req()?)?,
+        vin: s.next().req()?.parse()?,
+    })
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     stderrlog::new().verbosity(args.verbose + 2).init().unwrap();
@@ -117,7 +142,7 @@ fn main() -> Result<()> {
         Command::MakeSubmission {
             asset_id,
             fields,
-            issuance_txid,
+            issuance_txin,
             issuance_prevout,
             contract,
             signature,
@@ -127,10 +152,7 @@ fn main() -> Result<()> {
             let asset = Asset {
                 asset_id,
                 fields,
-                issuance_tx: TxInput {
-                    txid: issuance_txid,
-                    vin: 0,
-                }, // TODO
+                issuance_txin,
                 issuance_prevout,
                 contract,
                 signature,
@@ -141,18 +163,25 @@ fn main() -> Result<()> {
             if verify {
                 // TODO verify with ChainQuery
                 asset.verify(None)?;
-                info!("Asset verified successfully");
+                info!("asset verified successfully");
             }
         }
 
-        Command::VerifyAsset { fail, jsons } => {
+        Command::VerifyAsset {
+            fail,
+            esplora_url,
+            jsons,
+        } => {
             // always fail if we have a single json
             let fail = fail || jsons.len() == 1;
+
+            let chain = esplora_url.map(ChainQuery::new);
+
             for json in jsons {
                 let asset: Asset = serde_json::from_str(&json).context("invalid asset json")?;
                 debug!("verifying asset: {:?}", asset);
 
-                match asset.verify(None) {
+                match asset.verify(chain.as_ref()) {
                     Ok(()) => println!("{},true", asset.id().to_hex()),
                     Err(err) => {
                         warn!("asset verification failed: {:}", err);
