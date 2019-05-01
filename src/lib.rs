@@ -25,6 +25,8 @@ extern crate regex;
 extern crate structopt;
 
 pub mod asset;
+#[cfg(feature = "client")]
+pub mod client;
 pub mod entity;
 pub mod errors;
 pub mod registry;

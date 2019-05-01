@@ -5,8 +5,9 @@ authors = ["Nadav Ivgi <nadav@shesek.info>"]
 edition = "2018"
 
 [features]
-default = [ "cli" ]
+default = [ "cli", "client" ]
 dev = []
+client = []
 server = [ "rocket", "rocket_contrib" ]
 cli = [ "structopt" ]
 
