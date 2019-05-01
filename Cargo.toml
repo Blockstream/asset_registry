@@ -5,11 +5,13 @@ authors = ["Nadav Ivgi <nadav@shesek.info>"]
 edition = "2018"
 
 [features]
-default = []
+default = [ "cli" ]
 dev = []
+server = [ "rocket", "rocket_contrib" ]
+cli = [ "structopt" ]
 
 [dependencies]
-rocket = "0.4.0"
+rocket = { version = "0.4.0", optional = true }
 bitcoin = { git = "https://github.com/shesek/rust-bitcoin", rev = "edge" , features = [ "serde" ] }
 elements = { git = "https://github.com/shesek/rust-elements", rev = "edge", features = [ "serde" ]  }
 bitcoin_hashes = { git = "https://github.com/stevenroose/bitcoin_hashes", rev = "bd75e6cfc90efd2c9e3999adf0d92e1a41866cbe", features = [ "serde" ] }
@@ -27,9 +29,18 @@ reqwest = "0.9.15"
 lazy_static = "1.3.0"
 idna = "0.1.5"
 regex = "1.1.6"
-structopt = "0.2.15"
+structopt = { version = "0.2.15", optional = true }
 
 [dependencies.rocket_contrib]
 version = "0.4.0"
+optional = true
 default-features = false
 features = ["json"]
+
+[[bin]]
+name = "server"
+required-features = [ "cli", "server" ]
+
+[[bin]]
+name = "liquid-asset-registry"
+required-features = [ "cli" ]

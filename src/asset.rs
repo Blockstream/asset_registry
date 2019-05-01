@@ -6,6 +6,7 @@ use failure::ResultExt;
 use regex::Regex;
 use secp256k1::Secp256k1;
 use serde_json::Value;
+#[cfg(feature = "cli")]
 use structopt::StructOpt;
 
 use crate::entity::AssetEntity;
@@ -40,28 +41,42 @@ pub struct Asset {
 
 // Fields selected freely by the issuer
 // Also used directly by structopt to parse CLI args
-#[derive(Debug, Serialize, Deserialize, Clone, StructOpt)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "cli", derive(StructOpt))]
 pub struct AssetFields {
-    #[structopt(long, help = "Asset name (5-16 characters)")]
+    #[cfg_attr(
+        feature = "cli",
+        structopt(long, help = "Asset name (5-16 characters)")
+    )]
     pub name: String,
 
-    #[structopt(long, help = "Asset ticker (alphanumeric, 3-5 chars)")]
+    #[cfg_attr(
+        feature = "cli",
+        structopt(long, help = "Asset ticker (alphanumeric, 3-5 chars)")
+    )]
     pub ticker: Option<String>,
 
-    #[structopt(long, help = "Asset decimal precision (up to 8)")]
+    #[cfg_attr(
+        feature = "cli",
+        structopt(long, help = "Asset decimal precision (up to 8)")
+    )]
     pub precision: Option<u8>,
 
     // Domain name is currently the only entity type,
     // translate the --domain CLI arg into AssetEntity::DomainName
-    #[structopt(
-        name = "domain",
-        long,
-        help = "Domain name to associate with the asset",
-        parse(from_str = "parse_domain_entity")
+    #[cfg_attr(
+        feature = "cli",
+        structopt(
+            name = "domain",
+            long,
+            help = "Domain name to associate with the asset",
+            parse(from_str = "parse_domain_entity")
+        )
     )]
     pub entity: AssetEntity,
 }
 
+#[cfg(feature = "cli")]
 fn parse_domain_entity(domain: &str) -> AssetEntity {
     AssetEntity::DomainName(domain.to_string())
 }

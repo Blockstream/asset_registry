@@ -5,6 +5,7 @@ use bitcoin_hashes::hex::FromHex;
 use elements::AssetId;
 use rocket::{http, State};
 use rocket_contrib::json::Json;
+#[cfg(feature = "cli")]
 use structopt::StructOpt;
 
 use crate::asset::Asset;
@@ -31,23 +32,33 @@ fn update(asset: Json<Asset>, registry: State<Registry>) -> Result<http::Status>
     Ok(http::Status::NoContent)
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Debug)]
+#[cfg_attr(feature = "cli", derive(StructOpt))]
 pub struct Config {
-    #[structopt(
-        short,
-        long,
-        parse(from_occurrences),
-        help = "Increase verbosity (up to 3)"
+    #[cfg_attr(
+        feature = "cli",
+        structopt(
+            short,
+            long,
+            parse(from_occurrences),
+            help = "Increase verbosity (up to 3)"
+        )
     )]
     verbose: usize,
 
-    #[structopt(short, long = "db-path", help = "Path to database directory")]
+    #[cfg_attr(
+        feature = "cli",
+        structopt(short, long = "db-path", help = "Path to database directory")
+    )]
     db_path: PathBuf,
 
-    #[structopt(
-        short,
-        long = "hook-cmd",
-        help = "Hook script to run after every registry update"
+    #[cfg_attr(
+        feature = "cli",
+        structopt(
+            short,
+            long = "hook-cmd",
+            help = "Hook script to run after every registry update"
+        )
     )]
     hook_cmd: Option<String>,
 }
