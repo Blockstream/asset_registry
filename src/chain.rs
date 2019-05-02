@@ -125,7 +125,7 @@ pub mod tests {
     static SPAWN_ONCE: Once = ONCE_INIT;
 
     // a server that identifies as "test.dev" and verifies any requested asset id
-    pub fn spawn_mock_esplora_api() {
+    pub fn spawn_mock_esplora_server() {
         SPAWN_ONCE.call_once(|| {
             let config = r::config::Config::build(r::config::Environment::Development)
                 .port(58713)
@@ -157,7 +157,7 @@ pub mod tests {
         #[allow(unused_must_use)]
         stderrlog::new().verbosity(4).init();
 
-        spawn_mock_esplora_api();
+        spawn_mock_esplora_server();
     }
 
     #[test]

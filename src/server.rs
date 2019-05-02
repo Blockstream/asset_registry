@@ -65,7 +65,7 @@ pub struct Config {
             help = "url for querying chain state using the esplora api"
         )
     )]
-    esplora_url: Option<String>,
+    esplora_url: String,
 }
 
 pub fn start_server(config: Config) -> Result<rocket::Rocket> {
@@ -74,7 +74,7 @@ pub fn start_server(config: Config) -> Result<rocket::Rocket> {
     #[allow(unused_must_use)]
     stderrlog::new().verbosity(config.verbose + 2).init();
 
-    let chain = config.esplora_url.map(ChainQuery::new);
+    let chain = ChainQuery::new(config.esplora_url);
     let registry = Registry::new(&config.db_path, chain, config.hook_cmd);
 
     Ok(rocket::ignite()
@@ -86,7 +86,8 @@ pub fn start_server(config: Config) -> Result<rocket::Rocket> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entity::tests::spawn_verifier_server;
+    use crate::chain::tests::spawn_mock_esplora_server;
+    use crate::entity::tests::spawn_mock_verifier_server;
     use crate::errors::OptionExt;
     use bitcoin_hashes::hex::ToHex;
     use rocket::local::{Client, LocalResponse};
@@ -96,7 +97,7 @@ mod tests {
             let config = Config {
                 verbose: 1,
                 hook_cmd: None,
-                esplora_url: None,
+                esplora_url: "http://localhost:58713".to_string(),
                 db_path: std::env::temp_dir()
                     .join(format!("asset-registry-testdb-{}", std::process::id())),
             };
@@ -116,7 +117,8 @@ mod tests {
     #[test]
     fn test0_init() {
         stderrlog::new().verbosity(3).init();
-        spawn_verifier_server();
+        spawn_mock_verifier_server();
+        spawn_mock_esplora_server();
     }
 
     #[test]

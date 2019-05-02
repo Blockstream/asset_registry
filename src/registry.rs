@@ -15,17 +15,13 @@ const DIR_PARTITION_LEN: usize = 2;
 #[derive(Debug)]
 pub struct Registry {
     directory: path::PathBuf,
-    chain: Option<ChainQuery>,
+    chain: ChainQuery,
     hook_cmd: Option<String>,
     write_lock: Arc<Mutex<()>>,
 }
 
 impl Registry {
-    pub fn new(
-        directory: &path::Path,
-        chain: Option<ChainQuery>,
-        hook_cmd: Option<String>,
-    ) -> Self {
+    pub fn new(directory: &path::Path, chain: ChainQuery, hook_cmd: Option<String>) -> Self {
         Registry {
             directory: directory.to_path_buf(),
             chain,
@@ -49,7 +45,7 @@ impl Registry {
     pub fn write(&self, asset: Asset) -> Result<()> {
         let _lock = self.write_lock.lock().unwrap();
 
-        asset.verify(self.chain.as_ref())?;
+        asset.verify(Some(&self.chain))?;
 
         let name = format!("{}.json", asset.asset_id.to_hex());
         let subdir = self.directory.join(&name[0..DIR_PARTITION_LEN]);

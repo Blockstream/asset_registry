@@ -84,7 +84,7 @@ pub mod tests {
     static SPAWN_ONCE: Once = ONCE_INIT;
 
     // a server that identifies as "test.dev" and verifies any requested asset id
-    pub fn spawn_verifier_server() {
+    pub fn spawn_mock_verifier_server() {
         SPAWN_ONCE.call_once(|| {
             let config = r::config::Config::build(r::config::Environment::Development)
                 .port(58712)
@@ -111,7 +111,7 @@ pub mod tests {
     #[test]
     fn test0_init() {
         stderrlog::new().verbosity(3).init();
-        spawn_verifier_server();
+        spawn_mock_verifier_server();
     }
 
     #[test]
