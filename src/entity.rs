@@ -12,17 +12,9 @@ pub enum AssetEntity {
     DomainName(String),
 }
 
-/*
-pub enum EntityLinkProof {
-    Url(String),
-}
-*/
-
-impl AssetEntity {
-    pub fn verify_link(asset: &Asset) -> Result<()> {
-        match asset.entity() {
-            AssetEntity::DomainName(domain) => verify_domain_link(asset, domain),
-        }
+pub fn verify_asset_link(asset: &Asset) -> Result<()> {
+    match asset.entity() {
+        AssetEntity::DomainName(domain) => verify_domain_link(asset, domain),
     }
 }
 
@@ -67,7 +59,12 @@ fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
         .text()
         .context("invalid page contents")?;
 
-    ensure!(body.trim_end() == expected_body, "page contents mismatch");
+    ensure!(
+        body.trim_end() == expected_body,
+        "verification page contents mismatch"
+    );
+
+    debug!("verified domain link {} for {}", domain, asset_id);
 
     Ok(())
 }

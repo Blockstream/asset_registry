@@ -43,7 +43,7 @@ impl ChainQuery {
                 .context("failed fetching tx")?
                 .text()
                 .context("failed reading tx")?;
-            debug!("tx hex: {}--", hex);
+
             Some(deserialize(&hex::decode(hex.trim())?)?)
         })
     }
@@ -57,8 +57,6 @@ impl ChainQuery {
             .error_for_status()
             .context("failed fetching tx status")?
             .json()?;
-
-        debug!("tx status: {:?}", status);
 
         Ok(if status["confirmed"].as_bool().unwrap_or(false) {
             Some(serde_json::from_value(status)?)

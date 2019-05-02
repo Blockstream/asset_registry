@@ -10,7 +10,7 @@ use serde_json::Value;
 use structopt::StructOpt;
 
 use crate::chain::{verify_asset_issuance_tx, ChainQuery};
-use crate::entity::AssetEntity;
+use crate::entity::{verify_asset_link, AssetEntity};
 use crate::errors::{OptionExt, Result};
 use crate::util::{verify_bitcoin_msg, TxInput};
 
@@ -125,12 +125,11 @@ impl Asset {
         verify_asset_sig(self).context("failed verifying signature")?;
 
         if let Some(chain) = chain {
-            let _blockid = verify_asset_issuance_tx(chain, self)
-                .context("failed verifying on-chain issuance")?;
+            verify_asset_issuance_tx(chain, self).context("failed verifying on-chain issuance")?;
             // XXX keep block id?
         }
 
-        AssetEntity::verify_link(self).context("failed verifying linked entity")?;
+        verify_asset_link(self).context("failed verifying linked entity")?;
 
         Ok(())
     }
@@ -170,9 +169,9 @@ fn verify_asset_sig(asset: &Asset) -> Result<()> {
     verify_bitcoin_msg(&EC, &pubkey, &asset.signature, &msg)?;
 
     debug!(
-        "verified asset signature, issuer pubkey {} signed contract {:?}",
+        "verified asset signature, issuer pubkey {} signed fields {:?}",
         hex::encode(pubkey),
-        asset.contract,
+        asset.fields,
     );
     Ok(())
 }
