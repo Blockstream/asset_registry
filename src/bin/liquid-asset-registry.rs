@@ -9,7 +9,7 @@ extern crate failure;
 
 use bitcoin_hashes::{
     hex::{FromHex, ToHex},
-    sha256d,
+    sha256, sha256d, Hash,
 };
 use elements::{AssetId, OutPoint};
 use serde_json::Value;
@@ -108,6 +108,16 @@ enum Command {
         registry_url: String,
         json: String,
     },
+
+    #[structopt(
+        name = "contract-json",
+        about = "print contract json in canonical serialization (sorted)"
+    )]
+    ContractJson {
+        json: String,
+        #[structopt(short, long, help = "print contract hash (sha256)")]
+        hash: bool,
+    },
 }
 
 fn parse_outpoint(arg: &str) -> Result<OutPoint> {
@@ -204,6 +214,17 @@ fn main() -> Result<()> {
             }
 
             info!("asset submitted to registry: {:?}", asset);
+        }
+
+        Command::ContractJson { json, hash } => {
+            let contract: Value = serde_json::from_str(&json).context("invalid contract json")?;
+            let contract_str = serde_json::to_string(&contract)?;
+
+            if hash {
+                println!("{}", sha256::Hash::hash(&contract_str.as_bytes()).to_hex());
+            } else {
+                println!("{}", contract_str);
+            }
         }
     }
 
