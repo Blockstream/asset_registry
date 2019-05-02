@@ -59,12 +59,19 @@ impl Registry {
             fs::create_dir(&subdir)?;
         }
 
-        fs::write(&path, serde_json::to_string(&asset)?)?;
+        fs::write(&path, serde_json::to_string(&asset)?).context("failed writing asset to fs")?;
 
-        // XXX update index? or let the hook script take care of that?
-
-        self.exec_hook(&asset.asset_id, &path)
-            .context("hook script failed")?;
+        if let Err(err) = self
+            .exec_hook(&asset.asset_id, &fs::canonicalize(&path)?)
+            .context("hook script failed")
+        {
+            warn!("hook failed: {:?}", err);
+            if path.exists() {
+                warn!("reverting write, removing {:?}", path);
+                fs::remove_file(&path)?;
+            }
+            bail!(err)
+        }
 
         Ok(())
     }
