@@ -51,6 +51,10 @@ impl Registry {
         let subdir = self.directory.join(&name[0..DIR_PARTITION_LEN]);
         let path = subdir.join(name);
 
+        if path.exists() {
+            bail!("updates are not allowed");
+        }
+
         if !subdir.exists() {
             fs::create_dir(&subdir)?;
         }
