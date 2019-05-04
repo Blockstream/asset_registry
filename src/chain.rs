@@ -92,6 +92,8 @@ pub fn verify_asset_issuance_tx(chain: &ChainQuery, asset: &Asset) -> Result<Blo
         "issuance entropy does not match contract hash"
     );
 
+    // this is already verified as part of verify_asset_commitment, but we double-check here as a
+    // sanity check
     let entropy = AssetId::generate_asset_entropy(
         txin.previous_output,
         sha256::Hash::from_inner(txin.asset_issuance.asset_entropy),
@@ -102,7 +104,7 @@ pub fn verify_asset_issuance_tx(chain: &ChainQuery, asset: &Asset) -> Result<Blo
     );
 
     debug!(
-        "verified on-chain issuance of asset {}, tx {:?}",
+        "verified on-chain issuance of asset {}, tx input {:?}",
         asset.asset_id.to_hex(),
         asset.issuance_txin,
     );

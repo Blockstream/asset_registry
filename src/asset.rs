@@ -31,8 +31,6 @@ pub struct Asset {
     pub issuance_txin: TxInput,
     pub issuance_prevout: OutPoint,
 
-    //#[serde(with = "Base64")]
-    //issuer_pubkey: [u8; 33],
     #[serde(flatten)]
     pub fields: AssetFields,
 
@@ -111,8 +109,6 @@ impl Asset {
     }
 
     pub fn verify(&self, chain: Option<&ChainQuery>) -> Result<()> {
-        // XXX how should updates be verified? should we require a sequence number or other form of anti-replay?
-
         ensure!(RE_NAME.is_match(&self.fields.name), "invalid name");
         if let Some(ticker) = &self.fields.ticker {
             ensure!(RE_TICKER.is_match(&ticker), "invalid ticker");
@@ -134,7 +130,6 @@ impl Asset {
         Ok(())
     }
 
-    // XXX change to sha256d?
     pub fn contract_hash(&self) -> Result<sha256::Hash> {
         // json keys are sorted lexicographically
         let contract_str = serde_json::to_string(&self.contract)?;
@@ -148,6 +143,7 @@ fn verify_asset_commitment(asset: &Asset) -> Result<()> {
     let asset_id = AssetId::from_entropy(entropy);
 
     ensure!(asset.asset_id == asset_id, "invalid asset commitment");
+
     debug!(
         "verified asset commitment, asset id {} commits to prevout {:?} and contract hash {} ({:?})",
         asset_id.to_hex(),
