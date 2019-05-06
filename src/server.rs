@@ -157,7 +157,7 @@ mod tests {
     use std::{thread, time::Duration};
 
     lazy_static! {
-        static ref CLIENT: Client = Client::new("http://localhost:49013".to_string());
+        static ref CLIENT: Client = Client::new("http://localhost:49013".parse().unwrap());
     }
 
     fn spawn_test_server() {

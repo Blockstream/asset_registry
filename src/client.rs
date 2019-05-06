@@ -1,20 +1,17 @@
-use std::collections::HashMap;
-
 use bitcoin_hashes::hex::ToHex;
 use elements::AssetId;
-use reqwest::{Client as ReqClient, StatusCode};
+use reqwest::{Client as ReqClient, StatusCode, Url};
 
 use crate::asset::Asset;
 use crate::errors::{Result, ResultExt};
 
 pub struct Client {
-    registry_url: String,
+    registry_url: Url,
     rclient: ReqClient,
 }
 
 impl Client {
-    // TODO use reqwest::Url
-    pub fn new(registry_url: String) -> Self {
+    pub fn new(registry_url: Url) -> Self {
         Client {
             registry_url,
             rclient: ReqClient::new(),
@@ -24,7 +21,7 @@ impl Client {
     pub fn get(&self, asset_id: &AssetId) -> Result<Option<Asset>> {
         let resp = self
             .rclient
-            .get(&format!("{}/{}", self.registry_url, asset_id.to_hex()))
+            .get(self.registry_url.join(&asset_id.to_hex())?)
             .send()
             .context("failed fetching asset from registry")?;
 
@@ -40,10 +37,11 @@ impl Client {
         }
     }
 
+    /*
     pub fn index(&self) -> Result<HashMap<AssetId, Asset>> {
         Ok(self
             .rclient
-            .get(&self.registry_url)
+            .get(self.registry_url.join("/"))
             .send()
             .context("failed fetching assets from registry")?
             .error_for_status()
@@ -51,10 +49,11 @@ impl Client {
             .json()
             .context("failed deserializing asset map from registry")?)
     }
+    */
 
     pub fn register(&self, asset: &Asset) -> Result<()> {
         self.rclient
-            .post(&self.registry_url)
+            .post(self.registry_url.join("/")?)
             .json(asset)
             .send()
             .context("failed sending asset to registry")?
