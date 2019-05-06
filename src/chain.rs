@@ -144,12 +144,12 @@ pub mod tests {
 
     #[get("/tx/<_txid>/status")]
     fn tx_status_handler(_txid: String) -> JsonValue {
-        json!({
+        JsonValue::from(json!({
             "confirmed": true,
             "block_height": 999,
             "block_hash": "6ef1b8ac6cfacae9493e8d214d5ddd70322abe39bc0ab82727849b47bfb1fce6",
             "block_time": 1556733700
-        })
+        }))
     }
 
     #[test]

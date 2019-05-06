@@ -10,7 +10,7 @@ use asset_registry::server::{start_server, Config};
 
 fn main() -> Result<()> {
     let config = Config::from_args();
-    start_server(config)?.launch();
+    start_server(config)?;
 
     Ok(())
 }

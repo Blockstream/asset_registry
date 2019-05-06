@@ -42,7 +42,7 @@ impl Registry {
         })
     }
 
-    pub fn write(&self, asset: Asset) -> Result<()> {
+    pub fn write(&self, asset: &Asset) -> Result<()> {
         let _lock = self.write_lock.lock().unwrap();
 
         asset.verify(Some(&self.chain))?;

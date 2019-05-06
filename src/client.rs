@@ -13,6 +13,7 @@ pub struct Client {
 }
 
 impl Client {
+    // TODO use reqwest::Url
     pub fn new(registry_url: String) -> Self {
         Client {
             registry_url,
@@ -51,7 +52,7 @@ impl Client {
             .context("failed deserializing asset map from registry")?)
     }
 
-    pub fn registr(&self, asset: &Asset) -> Result<()> {
+    pub fn register(&self, asset: &Asset) -> Result<()> {
         self.rclient
             .post(&self.registry_url)
             .json(asset)

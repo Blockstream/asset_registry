@@ -8,14 +8,14 @@ edition = "2018"
 default = [ "cli", "client" ]
 dev = []
 client = []
-server = [ "rocket", "rocket_contrib" ]
+server = [ "hyper" ]
 cli = [ "structopt" ]
 
 [dependencies]
-rocket = { version = "0.4.0", optional = true }
 bitcoin = { git = "https://github.com/shesek/rust-bitcoin", rev = "edge" , features = [ "serde" ] }
 elements = { git = "https://github.com/shesek/rust-elements", rev = "edge", features = [ "serde" ]  }
 bitcoin_hashes = { git = "https://github.com/stevenroose/bitcoin_hashes", rev = "29053f647eb9c587cd87b34be38b0050ff26a7af", features = [ "serde" ] }
+hyper = { version = "0.12.28", optional = true }
 failure = "0.1.5"
 hex = "0.3.2"
 serde = "1.0"
@@ -32,11 +32,9 @@ idna = "0.1.5"
 regex = "1.1.6"
 structopt = { version = "0.2.15", optional = true }
 
-[dependencies.rocket_contrib]
-version = "0.4.0"
-optional = true
-default-features = false
-features = ["json"]
+[dev-dependencies]
+rocket = "0.4.0"
+rocket_contrib = { version = "0.4.0", default-features = false, features = ["json"] }
 
 [[bin]]
 name = "server"
