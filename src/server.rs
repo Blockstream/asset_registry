@@ -173,7 +173,6 @@ mod tests {
         std::fs::create_dir_all(&config.db_path).unwrap();
 
         thread::spawn(|| start_server(config).unwrap());
-        thread::sleep(Duration::from_millis(250));
     }
 
     #[test]
@@ -185,6 +184,8 @@ mod tests {
         chain::tests::spawn_mock_esplora_server();
 
         spawn_test_server();
+
+        thread::sleep(Duration::from_millis(250));
     }
 
     #[test]

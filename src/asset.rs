@@ -17,7 +17,7 @@ use crate::util::{verify_bitcoin_msg, TxInput};
 lazy_static! {
     static ref EC: Secp256k1<secp256k1::VerifyOnly> = Secp256k1::verification_only();
     // XXX what characters should be allowed in the name?
-    static ref RE_NAME: Regex = Regex::new(r"^[\w ]{5,255}$").unwrap();
+    static ref RE_NAME: Regex = Regex::new(r"^[[:ascii:]]{5,255}$").unwrap();
     static ref RE_TICKER: Regex = Regex::new(r"^[A-Z]{3,5}$").unwrap();
 }
 
