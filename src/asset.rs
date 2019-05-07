@@ -114,7 +114,7 @@ impl Asset {
             ensure!(RE_TICKER.is_match(&ticker), "invalid ticker");
         }
         if let Some(precision) = self.fields.precision {
-            ensure!((0 < precision && precision <= 8), "precision out of range");
+            ensure!(precision <= 8, "precision out of range");
         }
 
         verify_asset_commitment(self).context("failed verifying issuance commitment")?;
