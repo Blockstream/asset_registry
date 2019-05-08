@@ -221,7 +221,10 @@ fn main() -> Result<()> {
             let contract_str = serde_json::to_string(&contract)?;
 
             if hash {
-                println!("{}", sha256::Hash::hash(&contract_str.as_bytes()).to_hex());
+                let mut hash = sha256::Hash::hash(&contract_str.as_bytes()).into_inner();
+                // reverse the hash to match the format expected by elementsd for the contract_hash
+                hash.reverse();
+                println!("{}", hex::encode(hash));
             } else {
                 println!("{}", contract_str);
             }
