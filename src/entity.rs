@@ -6,7 +6,7 @@ use crate::asset::Asset;
 use crate::errors::Result;
 use crate::util::is_valid_domain;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum AssetEntity {
     #[serde(rename = "domain")]
     DomainName(String),

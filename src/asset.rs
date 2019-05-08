@@ -21,8 +21,6 @@ lazy_static! {
     static ref RE_TICKER: Regex = Regex::new(r"^[A-Z]{3,5}$").unwrap();
 }
 
-base64_serde_type!(Base64, base64::STANDARD);
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Asset {
     pub asset_id: AssetId,
@@ -34,13 +32,13 @@ pub struct Asset {
     #[serde(flatten)]
     pub fields: AssetFields,
 
-    #[serde(with = "Base64")]
-    pub signature: Vec<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
 }
 
 // Fields selected freely by the issuer
 // Also used directly by structopt to parse CLI args
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[cfg_attr(feature = "cli", derive(StructOpt))]
 pub struct AssetFields {
     #[cfg_attr(
@@ -73,6 +71,12 @@ pub struct AssetFields {
         )
     )]
     pub entity: AssetEntity,
+}
+
+impl AssetFields {
+    fn from_contract(contract: &Value) -> Result<Self> {
+        Ok(serde_json::from_value(contract.clone())?)
+    }
 }
 
 #[cfg(feature = "cli")]
@@ -111,14 +115,15 @@ impl Asset {
     pub fn verify(&self, chain: Option<&ChainQuery>) -> Result<()> {
         ensure!(RE_NAME.is_match(&self.fields.name), "invalid name");
         if let Some(ticker) = &self.fields.ticker {
-            ensure!(RE_TICKER.is_match(&ticker), "invalid ticker");
+            ensure!(RE_TICKER.is_match(ticker), "invalid ticker");
         }
         if let Some(precision) = self.fields.precision {
             ensure!(precision <= 8, "precision out of range");
         }
 
         verify_asset_commitment(self).context("failed verifying issuance commitment")?;
-        verify_asset_sig(self).context("failed verifying signature")?;
+
+        verify_asset_fields(self).context("failed verifying asset fields")?;
 
         if let Some(chain) = chain {
             verify_asset_issuance_tx(chain, self).context("failed verifying on-chain issuance")?;
@@ -135,8 +140,15 @@ impl Asset {
         let contract_str = serde_json::to_string(&self.contract)?;
         Ok(sha256::Hash::hash(&contract_str.as_bytes()))
     }
+
+    pub fn issuer_pubkey(&self) -> Result<&str> {
+        Ok(self.contract["issuer_pubkey"]
+            .as_str()
+            .or_err("missing issuer_pubkey")?)
+    }
 }
 
+// Verify the asset id commits to the provided contract and prevout
 fn verify_asset_commitment(asset: &Asset) -> Result<()> {
     let contract_hash = asset.contract_hash()?;
     let entropy = AssetId::generate_asset_entropy(asset.issuance_prevout, contract_hash);
@@ -154,20 +166,45 @@ fn verify_asset_commitment(asset: &Asset) -> Result<()> {
     Ok(())
 }
 
-fn verify_asset_sig(asset: &Asset) -> Result<()> {
-    let pubkey = asset.contract["issuer_pubkey"]
-        .as_str()
-        .or_err("missing required contract.issuer_pubkey")?;
+// Verify the asset fields
+fn verify_asset_fields(asset: &Asset) -> Result<()> {
+    match &asset.signature {
+        Some(signature) => {
+            // If a signature is provided, verify that it signs over the fields
+            verify_asset_fields_sig(
+                asset.issuer_pubkey()?,
+                signature,
+                &asset.asset_id,
+                &asset.fields,
+            )
+        }
+        None => {
+            // Otherwise, verify that the fields match the commited contract
+            ensure!(
+                asset.fields == AssetFields::from_contract(&asset.contract)?,
+                "fields mismatch commitment"
+            );
+            Ok(())
+        }
+    }
+}
+
+fn verify_asset_fields_sig(
+    pubkey: &str,
+    signature: &str,
+    asset_id: &AssetId,
+    fields: &AssetFields,
+) -> Result<()> {
     let pubkey = hex::decode(pubkey).context("invalid contract.issuer_pubkey hex")?;
+    let signature = base64::decode(signature).context("invalid signature base64")?;
+    let msg = format_sig_msg(asset_id, fields);
 
-    let msg = format_sig_msg(&asset.asset_id, &asset.fields);
-
-    verify_bitcoin_msg(&EC, &pubkey, &asset.signature, &msg)?;
+    verify_bitcoin_msg(&EC, &pubkey, &signature, &msg)?;
 
     debug!(
         "verified asset signature, issuer pubkey {} signed fields {:?}",
         hex::encode(pubkey),
-        asset.fields,
+        fields,
     );
     Ok(())
 }
@@ -207,7 +244,12 @@ mod tests {
     #[test]
     fn test2_verify_asset_sig() -> Result<()> {
         let asset = Asset::load(PathBuf::from("test/db/asset.json")).unwrap();
-        verify_asset_sig(&asset)?;
+        verify_asset_fields_sig(
+            &asset.issuer_pubkey().unwrap(),
+            asset.signature.as_ref().unwrap(),
+            &asset.asset_id,
+            &asset.fields,
+        )?;
         Ok(())
     }
 }

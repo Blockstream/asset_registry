@@ -158,14 +158,13 @@ fn main() -> Result<()> {
             signature,
             verify,
         } => {
-            let signature = base64::decode(&signature).context("invalid signature base64")?;
             let asset = Asset {
                 asset_id,
                 fields,
                 issuance_txin,
                 issuance_prevout,
                 contract,
-                signature,
+                signature: Some(signature),
             };
 
             println!("{}", serde_json::to_string(&asset)?);
