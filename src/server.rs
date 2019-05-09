@@ -75,8 +75,7 @@ pub struct Config {
 pub fn start_server(config: Config) -> Result<()> {
     info!("Web server config: {:?}", config);
 
-    #[allow(unused_must_use)]
-    stderrlog::new().verbosity(config.verbose + 2).init();
+    stderrlog::new().verbosity(config.verbose + 2).init().ok();
 
     let chain = ChainQuery::new(config.esplora_url);
     let registry = Arc::new(Registry::new(&config.db_path, chain, config.hook_cmd));
@@ -89,18 +88,28 @@ pub fn start_server(config: Config) -> Result<()> {
             let method = req.method().clone();
             let uri = req.uri().clone();
 
+            info!("processing {} {}", method, uri);
+
             Box::new(req.into_body().concat2().and_then(move |body| {
                 Ok(match handle_req(method, uri, body, &registry) {
-                    Ok((status, val)) => Response::builder()
-                        .header(header::CONTENT_TYPE, "application/json")
-                        .status(status)
-                        .body(Body::from(serde_json::to_string(&val).unwrap()))
-                        .unwrap(),
+                    Ok((status, val)) => {
+                        info!("success {:?}: {:?}", status, val);
 
-                    Err(err) => Response::builder()
-                        .status(StatusCode::BAD_REQUEST)
-                        .body(Body::from(err.to_string()))
-                        .unwrap(),
+                        Response::builder()
+                            .header(header::CONTENT_TYPE, "application/json")
+                            .status(status)
+                            .body(Body::from(serde_json::to_string(&val).unwrap()))
+                            .unwrap()
+                    }
+
+                    Err(err) => {
+                        warn!("error processing request: {:?}", err);
+
+                        Response::builder()
+                            .status(StatusCode::BAD_REQUEST)
+                            .body(Body::from(err.to_string()))
+                            .unwrap()
+                    }
                 })
             }))
         })
