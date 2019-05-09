@@ -91,4 +91,8 @@ impl Registry {
         }
         Ok(())
     }
+
+    pub fn chain(&self) -> &ChainQuery {
+        &self.chain
+    }
 }

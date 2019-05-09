@@ -2,7 +2,7 @@ use bitcoin_hashes::hex::ToHex;
 use elements::AssetId;
 use reqwest::{Client as ReqClient, StatusCode, Url};
 
-use crate::asset::Asset;
+use crate::asset::{Asset, AssetRequest};
 use crate::errors::{Result, ResultExt};
 
 pub struct Client {
@@ -32,7 +32,7 @@ impl Client {
                 resp.error_for_status()
                     .context("failed fetching asset from registry")?
                     .json()
-                    .context("failed deserializing asset map from registry")?,
+                    .context("failed parsing asset from registry")?,
             ))
         }
     }
@@ -51,14 +51,16 @@ impl Client {
     }
     */
 
-    pub fn register(&self, asset: &Asset) -> Result<()> {
-        self.rclient
+    pub fn register(&self, asset: &AssetRequest) -> Result<Asset> {
+        Ok(self
+            .rclient
             .post(self.registry_url.join("/")?)
             .json(asset)
             .send()
             .context("failed sending asset to registry")?
             .error_for_status()
-            .context("failed sending asset to registry")?;
-        Ok(())
+            .context("failed sending asset to registry")?
+            .json()
+            .context("failed parsing asset from registry")?)
     }
 }

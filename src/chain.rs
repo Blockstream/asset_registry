@@ -139,7 +139,7 @@ pub mod tests {
 
     #[get("/tx/<_txid>/hex")]
     fn tx_hex_handler(_txid: String) -> Result<String> {
-        Ok(fs::read_to_string("test/issuance-tx.hex")?)
+        Ok(fs::read_to_string("test/committed-issuance-tx.hex")?)
     }
 
     #[get("/tx/<_txid>/status")]
@@ -162,10 +162,10 @@ pub mod tests {
 
     #[test]
     fn test1_verify() -> Result<()> {
-        let asset = Asset::load(PathBuf::from("test/db/asset.json"))?;
+        let asset = Asset::load(PathBuf::from("test/asset-committed.json"))?;
         let chain = ChainQuery::new("http://localhost:58713".to_string());
 
-        verify_asset_issuance_tx(&chain, &asset)?;
+        verify_asset_issuance_tx(&chain, &asset, None)?;
         Ok(())
     }
 }

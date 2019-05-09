@@ -43,13 +43,13 @@ pub struct Asset {
 pub struct AssetFields {
     #[cfg_attr(
         feature = "cli",
-        structopt(long, help = "Asset name (5-16 characters)")
+        structopt(long, help = "Asset name (5-255 ascii characters)")
     )]
     pub name: String,
 
     #[cfg_attr(
         feature = "cli",
-        structopt(long, help = "Asset ticker (alphanumeric, 3-5 chars)")
+        structopt(long, help = "Asset ticker (3-5 alphanumeric characters)")
     )]
     pub ticker: Option<String>,
 
@@ -83,16 +83,6 @@ impl AssetFields {
 fn parse_domain_entity(domain: &str) -> AssetEntity {
     AssetEntity::DomainName(domain.to_string())
 }
-
-/*
-struct AssetSignature {
-    version: u32,
-    timestamp: u32,
-    seq: u32,
-    #[serde(with = "Base64")]
-    signature: Vec<u8>,
-}
-*/
 
 impl Asset {
     pub fn load(path: path::PathBuf) -> Result<Asset> {
@@ -146,6 +136,41 @@ impl Asset {
             .as_str()
             .or_err("missing issuer_pubkey")?)
     }
+
+    pub fn from_request(request: AssetRequest, chain: &ChainQuery) -> Result<Self> {
+        let AssetRequest {
+            asset_id,
+            contract,
+            issuance_txin,
+        } = request;
+
+        let fields = AssetFields::from_contract(&contract).context("invalid contract fields")?;
+
+        let issuance_tx = chain
+            .get_tx(&issuance_txin.txid)?
+            .or_err("issuance tx not found")?;
+        let issuance_prevout = issuance_tx
+            .input
+            .get(issuance_txin.vin)
+            .or_err("issuance tx missing input")?
+            .previous_output;
+
+        Ok(Asset {
+            asset_id,
+            contract,
+            fields,
+            issuance_txin,
+            issuance_prevout,
+            signature: None,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AssetRequest {
+    pub asset_id: AssetId,
+    pub contract: Value,
+    pub issuance_txin: TxInput,
 }
 
 // Verify the asset id commits to the provided contract and prevout
@@ -232,7 +257,7 @@ mod tests {
 
     #[test]
     fn test1_asset_load() -> Result<()> {
-        let asset = Asset::load(PathBuf::from("test/db/asset.json")).unwrap();
+        let asset = Asset::load(PathBuf::from("test/asset-signed.json")).unwrap();
         assert_eq!(
             asset.asset_id.to_hex(),
             "9a51761132b7399d34819c2c5d03af71794ff3aa0f78a434ddf20605545c86f2"
@@ -243,7 +268,7 @@ mod tests {
 
     #[test]
     fn test2_verify_asset_sig() -> Result<()> {
-        let asset = Asset::load(PathBuf::from("test/db/asset.json")).unwrap();
+        let asset = Asset::load(PathBuf::from("test/asset-signed.json")).unwrap();
         verify_asset_fields_sig(
             &asset.issuer_pubkey().unwrap(),
             asset.signature.as_ref().unwrap(),
