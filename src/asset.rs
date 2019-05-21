@@ -103,6 +103,12 @@ impl Asset {
     }
 
     pub fn verify(&self, chain: Option<&ChainQuery>) -> Result<()> {
+        // XXX version as top level field?
+        //ensure!(self.contract["version"].as_u32() == Some(0), "unknown version");
+
+        // TODO verify domain name format validity (and max length?)
+        // TODO verify ticket uniqueness within a domain namespace
+
         ensure!(RE_NAME.is_match(&self.fields.name), "invalid name");
         if let Some(ticker) = &self.fields.ticker {
             ensure!(RE_TICKER.is_match(ticker), "invalid ticker");
@@ -137,29 +143,24 @@ impl Asset {
             .or_err("missing issuer_pubkey")?)
     }
 
-    pub fn from_request(request: AssetRequest, chain: &ChainQuery) -> Result<Self> {
-        let AssetRequest {
-            asset_id,
-            contract,
-            issuance_txin,
-        } = request;
-
-        let fields = AssetFields::from_contract(&contract).context("invalid contract fields")?;
+    pub fn from_request(req: AssetRequest, chain: &ChainQuery) -> Result<Self> {
+        let fields =
+            AssetFields::from_contract(&req.contract).context("invalid contract fields")?;
 
         let issuance_tx = chain
-            .get_tx(&issuance_txin.txid)?
+            .get_tx(&req.issuance_txin.txid)?
             .or_err("issuance tx not found")?;
         let issuance_prevout = issuance_tx
             .input
-            .get(issuance_txin.vin)
+            .get(req.issuance_txin.vin)
             .or_err("issuance tx missing input")?
             .previous_output;
 
         Ok(Asset {
-            asset_id,
-            contract,
+            asset_id: req.asset_id,
+            contract: req.contract,
             fields,
-            issuance_txin,
+            issuance_txin: req.issuance_txin,
             issuance_prevout,
             signature: None,
         })
