@@ -111,7 +111,6 @@ impl Asset {
         // XXX version as top level field?
         //ensure!(self.contract["version"].as_u32() == Some(0), "unknown version");
 
-        // TODO verify domain name format validity (and max length?)
         // TODO verify ticket uniqueness within a domain namespace
 
         ensure!(self.fields.precision <= 8, "precision out of range");

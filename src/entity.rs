@@ -21,7 +21,6 @@ pub fn verify_asset_link(asset: &Asset) -> Result<()> {
 fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
     verify_domain_name(domain).context("invalid domain name")?;
 
-    // TODO normalize domain name
     // TODO tor proxy for accessing onion
 
     // require tls for non-onion hosts, assume http for onion ones
