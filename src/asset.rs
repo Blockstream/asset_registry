@@ -12,7 +12,7 @@ use structopt::StructOpt;
 use crate::chain::{verify_asset_issuance_tx, ChainQuery};
 use crate::entity::{verify_asset_link, AssetEntity};
 use crate::errors::{OptionExt, Result};
-use crate::util::{verify_bitcoin_msg, TxInput};
+use crate::util::{verify_bitcoin_msg, TxInput, verify_domain_name};
 
 lazy_static! {
     static ref EC: Secp256k1<secp256k1::VerifyOnly> = Secp256k1::verification_only();
@@ -116,6 +116,9 @@ impl Asset {
         if let Some(precision) = self.fields.precision {
             ensure!(precision <= 8, "precision out of range");
         }
+
+        let AssetEntity::DomainName(domain) = &self.fields.entity;
+        verify_domain_name(domain).context("invalid domain name")?;
 
         verify_asset_commitment(self).context("failed verifying issuance commitment")?;
 

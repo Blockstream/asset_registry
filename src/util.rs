@@ -72,8 +72,9 @@ impl BoolOpt for bool {
     }
 }
 
-// Domain name validation code extracted from https://github.com/rushmorem/publicsuffix/blob/master/src/lib.rs
-// (MIT, Copyright (c) 2016 Rushmore Mushambi)
+// Domain name validation code extracted from https://github.com/rushmorem/publicsuffix/blob/master/src/lib.rs,
+// MIT, Copyright (c) 2016 Rushmore Mushambi
+// (with some changes annotated with "shesek" comments)
 
 lazy_static! {
     // Regex for matching domain name labels
@@ -85,46 +86,47 @@ lazy_static! {
     };
 }
 
-pub fn is_valid_domain(domain: &str) -> bool {
+pub fn verify_domain_name(domain: &str) -> Result<()> {
     // we are explicitly checking for this here before calling `domain_to_ascii`
     // because `domain_to_ascii` strips of leading dots so we won't be able to
     // check for this later
-    if domain.starts_with('.') {
-        return false;
-    }
-    // let's convert the domain to ascii early on so we can validate
-    // internationalised domain names as well
-    let domain = match idna_to_ascii(domain) {
-        Some(domain) => domain,
-        None => {
-            return false;
-        }
-    };
+    ensure!(!domain.starts_with('.'), "cannot start with a dot");
+
+    // shesek: require domain names to be provided in ASCII form, in lower-case, and be less than 255 chars
+    ensure!(
+        idna_to_ascii(domain) == Some(domain.to_string()),
+        "should be provided in ASCII form"
+    );
+    ensure!(
+        domain.to_lowercase() == domain,
+        "should be provided in lower-case"
+    );
+    ensure!(domain.len() <= 255, "must be up to 255 characters");
+
     let mut labels: Vec<&str> = domain.split('.').collect();
     // strip of the first dot from a domain to support fully qualified domain names
     if domain.ends_with(".") {
         labels.pop();
     }
     // a domain must not have more than 127 labels
-    if labels.len() > 127 {
-        return false;
-    }
+    ensure!(labels.len() <= 127, "must not have more than 127 labels");
+
     // shesek: a domain must have at least two parts (prevents accessing localhost)
-    if labels.len() < 2 {
-        return false;
-    }
+    ensure!(labels.len() > 1, "must have at least two labels");
+
     labels.reverse();
     for (i, label) in labels.iter().enumerate() {
         // the tld must not be a number
         if i == 0 && label.parse::<f64>().is_ok() {
-            return false;
+            bail!("the tld must not be a number");
         }
         // any label must only contain allowed characters
-        if !DOMAIN_LABEL.is_match(label) {
-            return false;
-        }
+        ensure!(
+            DOMAIN_LABEL.is_match(label),
+            "must only contain allowed characters"
+        );
     }
-    true
+    Ok(())
 }
 
 fn idna_to_ascii(domain: &str) -> Option<String> {
@@ -144,10 +146,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_is_valid_domain() {
-        assert!(is_valid_domain("foo.com"));
-        assert!(!is_valid_domain(">foo.com"));
-        assert!(is_valid_domain("δοκιμή.com"));
+    fn test_verify_domain_name() {
+        assert!(verify_domain_name("foo.com").is_ok());
+        assert!(verify_domain_name("foO.com").is_err());
+        assert!(verify_domain_name(">foo.com").is_err());
+        assert!(verify_domain_name("δοκιμή.com").is_err());
+        assert!(verify_domain_name("xn--jxalpdlp.com").is_ok());
     }
 
     #[test]

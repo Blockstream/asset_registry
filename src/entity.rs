@@ -4,7 +4,7 @@ use reqwest;
 
 use crate::asset::Asset;
 use crate::errors::Result;
-use crate::util::is_valid_domain;
+use crate::util::verify_domain_name;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum AssetEntity {
@@ -19,7 +19,7 @@ pub fn verify_asset_link(asset: &Asset) -> Result<()> {
 }
 
 fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
-    ensure!(is_valid_domain(domain), "invalid domain name");
+    verify_domain_name(domain).context("invalid domain name")?;
 
     // TODO normalize domain name
     // TODO tor proxy for accessing onion

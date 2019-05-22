@@ -165,7 +165,7 @@ pub mod tests {
         let asset = Asset::load(PathBuf::from("test/asset-committed.json"))?;
         let chain = ChainQuery::new("http://localhost:58713".to_string());
 
-        verify_asset_issuance_tx(&chain, &asset, None)?;
+        verify_asset_issuance_tx(&chain, &asset)?;
         Ok(())
     }
 }
