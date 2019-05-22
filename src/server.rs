@@ -190,8 +190,7 @@ mod tests {
 
     #[test]
     fn test0_init() {
-        #[allow(unused_must_use)]
-        stderrlog::new().verbosity(3).init();
+        stderrlog::new().verbosity(3).init().ok();
 
         entity::tests::spawn_mock_verifier_server();
         chain::tests::spawn_mock_esplora_server();

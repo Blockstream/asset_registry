@@ -154,8 +154,7 @@ pub mod tests {
 
     #[test]
     fn test0_init() {
-        #[allow(unused_must_use)]
-        stderrlog::new().verbosity(4).init();
+        stderrlog::new().verbosity(3).init().ok();
 
         spawn_mock_esplora_server();
     }

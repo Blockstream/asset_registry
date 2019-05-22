@@ -107,7 +107,7 @@ pub mod tests {
 
     #[test]
     fn test0_init() {
-        stderrlog::new().verbosity(3).init();
+        stderrlog::new().verbosity(3).init().ok();
         spawn_mock_verifier_server();
     }
 
