@@ -12,7 +12,7 @@ use structopt::StructOpt;
 use crate::chain::{verify_asset_issuance_tx, ChainQuery};
 use crate::entity::{verify_asset_link, AssetEntity};
 use crate::errors::{OptionExt, Result};
-use crate::util::{verify_bitcoin_msg, TxInput, verify_domain_name};
+use crate::util::{verify_bitcoin_msg, verify_domain_name, TxInput};
 
 lazy_static! {
     static ref EC: Secp256k1<secp256k1::VerifyOnly> = Secp256k1::verification_only();
@@ -55,9 +55,10 @@ pub struct AssetFields {
 
     #[cfg_attr(
         feature = "cli",
-        structopt(long, help = "Asset decimal precision (up to 8)")
+        structopt(long, default_value = "0", help = "Asset decimal precision (up to 8)")
     )]
-    pub precision: Option<u8>,
+    #[serde(default = "default_precision")]
+    pub precision: u8,
 
     // Domain name is currently the only entity type,
     // translate the --domain CLI arg into AssetEntity::DomainName
@@ -82,6 +83,10 @@ impl AssetFields {
 #[cfg(feature = "cli")]
 fn parse_domain_entity(domain: &str) -> AssetEntity {
     AssetEntity::DomainName(domain.to_string())
+}
+
+fn default_precision() -> u8 {
+    0
 }
 
 impl Asset {
@@ -109,12 +114,11 @@ impl Asset {
         // TODO verify domain name format validity (and max length?)
         // TODO verify ticket uniqueness within a domain namespace
 
+        ensure!(self.fields.precision <= 8, "precision out of range");
         ensure!(RE_NAME.is_match(&self.fields.name), "invalid name");
+
         if let Some(ticker) = &self.fields.ticker {
             ensure!(RE_TICKER.is_match(ticker), "invalid ticker");
-        }
-        if let Some(precision) = self.fields.precision {
-            ensure!(precision <= 8, "precision out of range");
         }
 
         let AssetEntity::DomainName(domain) = &self.fields.entity;
