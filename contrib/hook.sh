@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xeo pipefail
+set -Eeuxo pipefail
 
 www_dir=./public
 archive_path=$www_dir/index.tar.xz
@@ -53,9 +53,13 @@ append_json_key() {
   echo -n '"'$key'":'"$value"'}' >> $json_file
 }
 
-#init_commit=`git rev-parse HEAD`
-#rollback() {
-#  git reset --hard $init_commit
-#}
+init_commit=`git rev-parse HEAD`
+rollback() {
+  echo hook failed, rolling back to $init_commit
+  git reset --hard $init_commit
+  # XXX perhaps as a revert commit instead?
+}
+
+trap rollback ERR
 
 main "$@"
