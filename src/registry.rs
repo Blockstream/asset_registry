@@ -78,14 +78,19 @@ impl Registry {
 
     pub fn exec_hook(&self, asset_id: &AssetId, asset_path: &path::Path) -> Result<()> {
         if let Some(cmd) = &self.hook_cmd {
-            debug!("running hook: {}", cmd);
+            debug!("running hook {} for {:?}", cmd, asset_id);
 
             let output = Command::new(cmd)
                 .current_dir(&self.directory)
                 .arg(asset_id.to_hex())
                 .arg(asset_path.to_str().req()?)
                 .output()?;
-            debug!("hook output: {:?}", output);
+            debug!(
+                "hook exited with {:?}\n## stdout: {}\n## stderr: {}",
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
 
             ensure!(output.status.success(), "hook script failed");
         }
