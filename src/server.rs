@@ -96,8 +96,8 @@ pub fn start_server(config: Config) -> Result<()> {
                         info!("success {:?}: {:?}", status, val);
 
                         Response::builder()
-                            .header(header::CONTENT_TYPE, "application/json")
                             .status(status)
+                            .header(header::CONTENT_TYPE, "application/json")
                             .body(Body::from(serde_json::to_string(&val).unwrap()))
                             .unwrap()
                     }
@@ -105,9 +105,14 @@ pub fn start_server(config: Config) -> Result<()> {
                     Err(err) => {
                         warn!("error processing request: {:?}", err);
 
+                        #[cfg(not(feature = "dev"))]
+                        let body = format!("{:#?}", err);
+                        #[cfg(feature = "dev")]
+                        let body = err.iter_chain().map(|s| s.to_string()).collect::<Vec<String>>().join(": ");
+
                         Response::builder()
                             .status(StatusCode::BAD_REQUEST)
-                            .body(Body::from(err.to_string()))
+                            .body(Body::from(body))
                             .unwrap()
                     }
                 })
