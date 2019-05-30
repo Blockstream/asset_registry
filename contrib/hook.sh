@@ -23,10 +23,8 @@ main() {
   # Commit to git and push
   if [ -d .git ]; then
     git add $asset_path $full_index_path $minimal_index_path
-    # might fail with "nothing to commit" if the update didn't really change anything
-    if git commit -S -m "Update asset $asset_id"; then
-      git push
-    fi
+    git commit -S -m "Update asset $asset_id"
+    git push
   fi
 
   # Make asset available in public www dir
