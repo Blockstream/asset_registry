@@ -25,3 +25,10 @@ impl<T> OptionExt<T> for Option<T> {
         self.ok_or_else(|| Context::new("missing required option"))
     }
 }
+
+pub fn join_err(err: &Error) -> String {
+    err.iter_chain()
+        .map(|s| s.to_string())
+        .collect::<Vec<String>>()
+        .join(": ")
+}

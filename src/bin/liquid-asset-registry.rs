@@ -7,18 +7,13 @@ extern crate base64;
 #[macro_use]
 extern crate failure;
 
-use bitcoin_hashes::{
-    hex::{FromHex, ToHex},
-    sha256, sha256d, Hash,
-};
-use elements::{AssetId, OutPoint};
+use bitcoin_hashes::{hex::ToHex, sha256, Hash};
 use serde_json::Value;
 use structopt::StructOpt;
 
-use asset_registry::asset::{format_sig_msg, Asset, AssetFields};
+use asset_registry::asset::{Asset, AssetRequest};
 use asset_registry::chain::ChainQuery;
-use asset_registry::errors::{OptionExt, Result, ResultExt};
-use asset_registry::util::TxInput;
+use asset_registry::errors::{join_err, Result, ResultExt};
 
 #[derive(StructOpt, Debug)]
 struct Cli {
@@ -26,7 +21,7 @@ struct Cli {
         short = "v",
         long = "verbose",
         parse(from_occurrences),
-        help = "Increase verbosity (up to 3)"
+        help = "Increase verbosity (up to 3 times)"
     )]
     verbose: usize,
     #[structopt(subcommand)]
@@ -35,52 +30,6 @@ struct Cli {
 
 #[derive(StructOpt, Debug)]
 enum Command {
-    #[structopt(name = "make-sig-message", about = "Prepare signed message format")]
-    MakeSigMessage {
-        #[structopt(long = "asset-id", parse(try_from_str = "AssetId::from_hex"))]
-        asset_id: AssetId,
-        #[structopt(flatten)]
-        fields: AssetFields,
-    },
-
-    #[structopt(
-        name = "make-submission",
-        about = "Prepare asset submission to registry"
-    )]
-    MakeSubmission {
-        #[structopt(long = "asset-id", parse(try_from_str = "AssetId::from_hex"))]
-        asset_id: AssetId,
-
-        #[structopt(flatten)]
-        fields: AssetFields,
-
-        #[structopt(
-            long = "issuance-txin",
-            help = "The issuance transaction input in txid:vin format",
-            parse(try_from_str = "parse_input")
-        )]
-        issuance_txin: TxInput,
-
-        #[structopt(
-            long = "issuance-prevout",
-            help = "Outpoint used for asset issuance in txid:vout format",
-            parse(try_from_str = "parse_outpoint")
-        )]
-        issuance_prevout: OutPoint,
-
-        #[structopt(long)]
-        contract: Value,
-
-        #[structopt(long)]
-        signature: String,
-
-        #[structopt(
-            long,
-            help = "verify prepared asset (except for on-chain status, use verify-asset with --esplora-url for that)"
-        )]
-        verify: bool,
-    },
-
     #[structopt(name = "verify-asset", about = "Verify asset associations")]
     VerifyAsset {
         #[structopt(
@@ -106,7 +55,9 @@ enum Command {
     RegisterAsset {
         #[structopt(short, long = "registry-url")]
         registry_url: String,
-        json: String,
+
+        #[structopt(flatten)]
+        asset_req: AssetRequest,
     },
 
     #[structopt(
@@ -120,62 +71,12 @@ enum Command {
     },
 }
 
-fn parse_outpoint(arg: &str) -> Result<OutPoint> {
-    let mut s = arg.split(":");
-
-    Ok(OutPoint {
-        txid: sha256d::Hash::from_hex(s.next().req()?)?,
-        vout: s.next().req()?.parse()?,
-    })
-}
-
-fn parse_input(arg: &str) -> Result<TxInput> {
-    let mut s = arg.split(":");
-
-    Ok(TxInput {
-        txid: sha256d::Hash::from_hex(s.next().req()?)?,
-        vin: s.next().req()?.parse()?,
-    })
-}
-
 fn main() -> Result<()> {
     let args = Cli::from_args();
     stderrlog::new().verbosity(args.verbose + 2).init().unwrap();
     debug!("cli args: {:?}", args);
 
     match args.cmd {
-        Command::MakeSigMessage { asset_id, fields } => {
-            let msg = format_sig_msg(&asset_id, &fields);
-            println!("{}", msg);
-        }
-
-        Command::MakeSubmission {
-            asset_id,
-            fields,
-            issuance_txin,
-            issuance_prevout,
-            contract,
-            signature,
-            verify,
-        } => {
-            let asset = Asset {
-                asset_id,
-                fields,
-                issuance_txin,
-                issuance_prevout,
-                contract,
-                signature: Some(signature),
-            };
-
-            println!("{}", serde_json::to_string(&asset)?);
-
-            if verify {
-                // TODO verify with ChainQuery
-                asset.verify(None)?;
-                info!("asset verified successfully");
-            }
-        }
-
         Command::VerifyAsset {
             fail,
             esplora_url,
@@ -193,26 +94,31 @@ fn main() -> Result<()> {
                 match asset.verify(chain.as_ref()) {
                     Ok(()) => println!("{},true", asset.id().to_hex()),
                     Err(err) => {
-                        warn!("asset verification failed: {:}", err);
-                        println!("{},false,\"{}\"", asset.id().to_hex(), err.to_string());
+                        warn!("asset verification failed: {}", join_err(&err));
+                        println!("{},false", asset.id().to_hex());
                         ensure!(!fail, "failed verifying asset, aborting");
                     }
                 }
             }
         }
 
-        Command::RegisterAsset { registry_url, json } => {
-            let asset: Asset = serde_json::from_str(&json).context("invalid asset json")?;
-            let client = reqwest::Client::new();
-            let mut resp = client.post(&registry_url).json(&asset).send()?;
+        Command::RegisterAsset {
+            registry_url,
+            asset_req,
+        } => {
+            info!("submiting to registry: {:#?}", asset_req);
 
-            if resp.status() != reqwest::StatusCode::OK {
+            let client = reqwest::Client::new();
+            let mut resp = client.post(&registry_url).json(&asset_req).send()?;
+            if resp.status() != reqwest::StatusCode::CREATED {
                 error!("invalid reply from registry: {:#?}", resp);
                 error!("{}", resp.text()?);
                 bail!("asset registeration failed")
             }
 
-            info!("asset submitted to registry: {:?}", asset);
+            let asset: Asset = resp.json()?;
+
+            info!("registered succesfully: {:#?}", asset);
         }
 
         Command::ContractJson { json, hash } => {

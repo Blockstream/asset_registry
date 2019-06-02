@@ -1,6 +1,6 @@
 use std::{fs, path};
 
-use bitcoin_hashes::{hex::ToHex, sha256, Hash};
+use bitcoin_hashes::{hex::FromHex, hex::ToHex, sha256, Hash};
 use elements::{AssetId, OutPoint};
 use failure::ResultExt;
 use regex::Regex;
@@ -168,9 +168,27 @@ impl Asset {
     }
 }
 
+#[cfg_attr(feature = "cli", derive(StructOpt))]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AssetRequest {
+    #[cfg_attr(
+        feature = "cli",
+        structopt(
+            long = "asset-id",
+            help = "The asset-id",
+            parse(try_from_str = "AssetId::from_hex")
+        )
+    )]
     pub asset_id: AssetId,
+
+    #[cfg_attr(
+        feature = "cli",
+        structopt(
+            long = "contract",
+            help = "The issuance contract",
+            parse(try_from_str = "serde_json::from_str")
+        )
+    )]
     pub contract: Value,
 }
 

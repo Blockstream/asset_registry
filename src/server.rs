@@ -15,7 +15,7 @@ use structopt::StructOpt;
 
 use crate::asset::Asset;
 use crate::chain::ChainQuery;
-use crate::errors::{Result, ResultExt};
+use crate::errors::{join_err, Result, ResultExt};
 use crate::registry::Registry;
 
 #[derive(Debug)]
@@ -106,9 +106,9 @@ pub fn start_server(config: Config) -> Result<()> {
                         warn!("error processing request: {:?}", err);
 
                         #[cfg(not(feature = "dev"))]
-                        let body = format!("{:#?}", err);
+                        let body = join_err(&err);
                         #[cfg(feature = "dev")]
-                        let body = err.iter_chain().map(|s| s.to_string()).collect::<Vec<String>>().join(": ");
+                        let body = format!("{:#?}", err);
 
                         Response::builder()
                             .status(StatusCode::BAD_REQUEST)
