@@ -47,7 +47,11 @@ enum Command {
 
     #[structopt(name = "register-asset", about = "Send asset to registry")]
     RegisterAsset {
-        #[structopt(short, long = "registry-url", default_value = "https://assets.blockstream.info")]
+        #[structopt(
+            short,
+            long = "registry-url",
+            default_value = "https://assets.blockstream.info"
+        )]
         registry_url: String,
 
         #[structopt(flatten)]
@@ -71,10 +75,7 @@ fn main() -> Result<()> {
     debug!("cli args: {:?}", args);
 
     match args.cmd {
-        Command::VerifyAsset {
-            esplora_url,
-            jsons,
-        } => {
+        Command::VerifyAsset { esplora_url, jsons } => {
             let chain = esplora_url.map(ChainQuery::new);
             let mut failed = false;
 
