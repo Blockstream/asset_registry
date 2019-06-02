@@ -43,9 +43,9 @@ impl Registry {
     }
 
     pub fn write(&self, asset: &Asset) -> Result<()> {
-        let _lock = self.write_lock.lock().unwrap();
-
         asset.verify(Some(&self.chain))?;
+
+        let _lock = self.write_lock.lock().unwrap();
 
         let name = format!("{}.json", asset.asset_id.to_hex());
         let subdir = self.directory.join(&name[0..DIR_PARTITION_LEN]);
