@@ -23,7 +23,7 @@ pub struct BlockId {
 impl ChainQuery {
     pub fn new(api_url: String) -> Self {
         ChainQuery {
-            api_url,
+            api_url: api_url.trim_end_matches('/').into(),
             rclient: ReqClient::new(),
         }
     }
