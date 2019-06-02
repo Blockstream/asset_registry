@@ -150,24 +150,19 @@ impl Asset {
     }
 
     pub fn from_request(req: AssetRequest, chain: &ChainQuery) -> Result<Self> {
+        let mut asset_data = chain
+            .get_asset(&req.asset_id)?
+            .or_err("asset id not found")?;
+
         let fields =
             AssetFields::from_contract(&req.contract).context("invalid contract fields")?;
-
-        let issuance_tx = chain
-            .get_tx(&req.issuance_txin.txid)?
-            .or_err("issuance tx not found")?;
-        let issuance_prevout = issuance_tx
-            .input
-            .get(req.issuance_txin.vin)
-            .or_err("issuance tx missing input")?
-            .previous_output;
 
         Ok(Asset {
             asset_id: req.asset_id,
             contract: req.contract,
             fields,
-            issuance_txin: req.issuance_txin,
-            issuance_prevout,
+            issuance_txin: serde_json::from_value(asset_data["issuance_txin"].take())?,
+            issuance_prevout: serde_json::from_value(asset_data["issuance_prevout"].take())?,
             signature: None,
         })
     }
@@ -177,7 +172,6 @@ impl Asset {
 pub struct AssetRequest {
     pub asset_id: AssetId,
     pub contract: Value,
-    pub issuance_txin: TxInput,
 }
 
 // Verify the asset id commits to the provided contract and prevout

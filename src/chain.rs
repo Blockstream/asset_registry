@@ -64,6 +64,25 @@ impl ChainQuery {
             None
         })
     }
+
+    pub fn get_asset(&self, asset_id: &AssetId) -> Result<Option<Value>> {
+        let resp = self
+            .rclient
+            .get(&format!("{}/asset/{}", self.api_url, asset_id.to_hex()))
+            .send()
+            .context("failed fetching tx")?;
+
+        Ok(if resp.status() == StatusCode::NOT_FOUND {
+            None
+        } else {
+            Some(
+                resp.error_for_status()
+                    .context("failed fetching asset")?
+                    .json()
+                    .context("failed reading asset")?,
+            )
+        })
+    }
 }
 
 pub fn verify_asset_issuance_tx(chain: &ChainQuery, asset: &Asset) -> Result<BlockId> {
