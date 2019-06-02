@@ -47,7 +47,7 @@ enum Command {
 
     #[structopt(name = "register-asset", about = "Send asset to registry")]
     RegisterAsset {
-        #[structopt(short, long = "registry-url")]
+        #[structopt(short, long = "registry-url", default_value = "https://assets.blockstream.info")]
         registry_url: String,
 
         #[structopt(flatten)]
