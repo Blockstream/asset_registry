@@ -5,6 +5,7 @@ use bitcoin_hashes::hex::ToHex;
 use elements::AssetId;
 
 use crate::asset::Asset;
+use crate::entity::AssetEntity;
 use crate::chain::ChainQuery;
 use crate::errors::{OptionExt, Result, ResultExt};
 
@@ -55,20 +56,38 @@ impl Registry {
             bail!("updates are not allowed");
         }
 
+        // XXX use sub-dirs inside map too, use the hash of the unique_key as filename?
+        let map_dir = self.directory.join("_map");
+        let unique_key = make_unique_key(&asset.fields.entity, asset.fields.ticker.as_ref());
+        let unique_path = map_dir.join(unique_key);
+
+        if unique_path.exists() {
+            bail!("another asset is already registered with this entity/ticker");
+        }
+
         if !subdir.exists() {
             fs::create_dir(&subdir)?;
         }
+        if !map_dir.exists() {
+            fs::create_dir(&map_dir)?;
+        }
 
         fs::write(&path, serde_json::to_string(&asset)?).context("failed writing asset to fs")?;
+        fs::write(&unique_path, asset.asset_id.to_hex())
+            .context("failed writing asset map to fs")?;
 
         if let Err(err) = self
             .exec_hook(&asset.asset_id, &fs::canonicalize(&path)?)
             .context("hook script failed")
         {
             warn!("hook failed: {:?}", err);
+
+            // cleanup created files (might've already been cleaned by the hook script)
             if path.exists() {
-                warn!("reverting write, removing {:?}", path);
                 fs::remove_file(&path)?;
+            }
+            if unique_path.exists() {
+                fs::remove_file(&unique_path)?;
             }
             bail!(err)
         }
@@ -100,4 +119,11 @@ impl Registry {
     pub fn chain(&self) -> &ChainQuery {
         &self.chain
     }
+}
+
+fn make_unique_key(entity: &AssetEntity, ticker: Option<&String>) -> String {
+    ticker.map_or_else(
+        || format!("{}", entity),
+        |ticker| format!("{}@{}", ticker, entity),
+    )
 }

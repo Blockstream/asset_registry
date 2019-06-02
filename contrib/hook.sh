@@ -22,7 +22,7 @@ main() {
 
   # Commit to git and push
   if [ -d .git ]; then
-    git add $asset_path $full_index_path $minimal_index_path
+    git add $asset_path $full_index_path $minimal_index_path _map
     git commit -S -m "Update asset $asset_id"
     git push
   fi
@@ -34,7 +34,7 @@ main() {
   cp $full_index_path $minimal_index_path $www_dir/
 
   # Update tar.xz archive
-  tar cJf $archive_path ??/*.json
+  tar cJf $archive_path _map ??/*.json
 }
 
 # Assumes keys are only added and never updated (updating assets is currently not allowed by the api server)

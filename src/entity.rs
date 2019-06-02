@@ -1,3 +1,5 @@
+use std::fmt;
+
 use bitcoin_hashes::hex::ToHex;
 use failure::ResultExt;
 use reqwest;
@@ -10,6 +12,14 @@ use crate::util::verify_domain_name;
 pub enum AssetEntity {
     #[serde(rename = "domain")]
     DomainName(String),
+}
+
+impl fmt::Display for AssetEntity {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            AssetEntity::DomainName(domain) => write!(f, "domain:{}", domain),
+        }
+    }
 }
 
 pub fn verify_asset_link(asset: &Asset) -> Result<()> {
