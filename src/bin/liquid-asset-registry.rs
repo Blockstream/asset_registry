@@ -32,12 +32,6 @@ struct Cli {
 enum Command {
     #[structopt(name = "verify-asset", about = "Verify asset associations")]
     VerifyAsset {
-        #[structopt(
-            long,
-            help = "exit with an error code if any of the veritifications fail"
-        )]
-        fail: bool,
-
         #[cfg_attr(
             feature = "cli",
             structopt(
@@ -78,14 +72,11 @@ fn main() -> Result<()> {
 
     match args.cmd {
         Command::VerifyAsset {
-            fail,
             esplora_url,
             jsons,
         } => {
-            // always fail if we have a single json
-            let fail = fail || jsons.len() == 1;
-
             let chain = esplora_url.map(ChainQuery::new);
+            let mut failed = false;
 
             for json in jsons {
                 let asset: Asset = serde_json::from_str(&json).context("invalid asset json")?;
@@ -96,9 +87,13 @@ fn main() -> Result<()> {
                     Err(err) => {
                         warn!("asset verification failed: {}", join_err(&err));
                         println!("{},false", asset.id().to_hex());
-                        ensure!(!fail, "failed verifying asset, aborting");
+                        failed = true;
                     }
                 }
+            }
+
+            if failed {
+                std::process::exit(1);
             }
         }
 
