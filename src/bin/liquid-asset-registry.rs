@@ -32,13 +32,10 @@ struct Cli {
 enum Command {
     #[structopt(name = "verify-asset", about = "Verify asset associations")]
     VerifyAsset {
-        #[cfg_attr(
-            feature = "cli",
-            structopt(
-                short,
-                long = "esplora-url",
-                help = "url for querying chain state using the esplora api"
-            )
+        #[structopt(
+            short,
+            long = "esplora-url",
+            help = "url for querying chain state using the esplora api"
         )]
         esplora_url: Option<String>,
 
