@@ -1,6 +1,5 @@
 use std::net;
 use std::path::PathBuf;
-use std::str::FromStr;
 
 use bitcoin_hashes::hex::FromHex;
 use elements::AssetId;
@@ -34,12 +33,7 @@ pub struct Config {
 
     #[cfg_attr(
         feature = "cli",
-        structopt(
-            short,
-            long,
-            parse(try_from_str = "net::SocketAddr::from_str"),
-            help = "http server listen address (host:port)"
-        )
+        structopt(short, long, help = "http server listen address (host:port)")
     )]
     addr: net::SocketAddr,
 

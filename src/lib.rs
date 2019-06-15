@@ -6,8 +6,6 @@ extern crate elements;
 extern crate secp256k1;
 extern crate serde;
 #[macro_use]
-extern crate serde_json;
-#[macro_use]
 extern crate serde_derive;
 #[macro_use]
 extern crate lazy_static;

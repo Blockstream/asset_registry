@@ -5,8 +5,8 @@ use bitcoin_hashes::hex::ToHex;
 use elements::AssetId;
 
 use crate::asset::Asset;
-use crate::entity::AssetEntity;
 use crate::chain::ChainQuery;
+use crate::entity::AssetEntity;
 use crate::errors::{OptionExt, Result, ResultExt};
 
 // length of asset id prefix to use for sub-directory partitioning
