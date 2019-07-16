@@ -109,7 +109,7 @@ impl Asset {
 
     pub fn verify(&self, chain: Option<&ChainQuery>) -> Result<()> {
         // XXX version as top level field?
-        //ensure!(self.contract["version"].as_u32() == Some(0), "unknown version");
+        ensure!(self.contract["version"].as_u64() == Some(0), "unknown version");
 
         ensure!(self.fields.precision <= 8, "precision out of range");
         ensure!(RE_NAME.is_match(&self.fields.name), "invalid name");
