@@ -1,0 +1,21 @@
+doctype html
+
+title Liquid asset registration
+meta(charset='utf-8')
+meta(name='viewport', content='width=device-width, initial-scale=1.0')
+link(rel='stylesheet', href='node_modules/bootstrap/dist/css/bootstrap.min.css')
+
+.container.py-5
+  h2 Liquid asset registration
+  form.mt-3
+    .form-group
+      label(for='asset-id') Asset ID
+      input#asset-id.form-control(type='text', name='asset_id')
+    .form-group
+      label(for='contract-json') Contract JSON
+      textarea#contract-json.form-control(name='contract_json', rows='5')
+    input.btn.btn-primary(type='submit', value='Register')
+  #res.mt-3.alert.d-none
+
+script(src='node_modules/jquery/dist/jquery.slim.min.js')
+script(src='script.js')

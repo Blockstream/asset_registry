@@ -1,0 +1,14 @@
+{
+  "name": "register-webpage",
+  "scripts": {
+    "dist": "./build.sh"
+  },
+  "author": "Nadav Ivgi",
+  "license": "MIT",
+  "devDependencies": {
+    "bootstrap": "^4.3.1",
+    "html-inline": "^1.2.0",
+    "jquery": "^3.4.1",
+    "pug": "^2.0.4"
+  }
+}
