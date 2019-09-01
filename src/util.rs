@@ -87,15 +87,10 @@ lazy_static! {
 }
 
 pub fn verify_domain_name(domain: &str) -> Result<()> {
-    // we are explicitly checking for this here before calling `domain_to_ascii`
-    // because `domain_to_ascii` strips of leading dots so we won't be able to
-    // check for this later
     ensure!(!domain.starts_with('.'), "cannot start with a dot");
-
-    // shesek: require domain names to be provided in ASCII form, in lower-case, and be less than 255 chars
     ensure!(
         idna_to_ascii(domain) == Some(domain.to_string()),
-        "should be provided in ASCII form"
+        "should be provided in ASCII/Punycode form, not IDNA Unicode"
     );
     ensure!(
         domain.to_lowercase() == domain,
