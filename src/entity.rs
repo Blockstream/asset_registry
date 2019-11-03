@@ -34,7 +34,7 @@ fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
     // TODO tor proxy for accessing onion
 
     // require tls for non-onion hosts, assume http for onion ones
-    let protocol = if &domain[domain.len() - 6..] == ".onion" {
+    let protocol = if domain.ends_with(".onion") {
         "http"
     } else {
         "https"
