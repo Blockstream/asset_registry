@@ -30,6 +30,7 @@ main() {
   fi
 
   # Make asset available in public www dir
+  mkdir -p $www_dir
   ln -s `realpath $asset_path` $www_dir/$asset_id.json
 
   # Overwrite public index maps with the updated ones
