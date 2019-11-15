@@ -12,6 +12,8 @@ main() {
 
   echo "Registry in `pwd` updated, written asset $asset_id to $asset_path"
 
+  [ -d .git ] && git_update
+
   # Maintain index.json with a full map of asset id -> asset data,
   # and index.minimal.json with a more concise representation
   json_full="$(cat $2)"
@@ -49,6 +51,25 @@ append_json_key() {
     echo ',' >> $json_file
   fi
   echo -n '"'$key'":'"$value"'}' >> $json_file
+}
+
+# Pull remote git updates, only accepting fast-forwards signed by the gpg
+# key specified in ./signing-key.asc
+git_update() {
+  # Create the local keyring file with just the assets db signing key
+  if [ ! -f gitkey.gpg ]; then
+    gpg2 --no-default-keyring --keyring ./gitkey.gpg --import signing-key.asc
+    # mark as trusted (https://raymii.org/s/articles/GPG_noninteractive_batch_sign_trust_and_send_gnupg_keys.html)
+    echo -e "5\ny\n" |  gpg2 --no-default-keyring --keyring ./gitkey.gpg --command-fd 0 --edit-key 'Liquid registry assets' trust
+  fi
+
+  # Setup a "gitpgp" command to only accept keys from the local keyring file
+  if [ ! -f gitgpg ]; then
+    echo -e '#!/bin/sh\nexec gpg2 --no-default-keyring --keyring ./gitkey.gpg "$@"' > gitgpg
+    chmod +x gitgpg
+  fi
+
+  git -c gpg.program=./gitgpg pull --verify-signatures --ff-only
 }
 
 init_commit=`git rev-parse HEAD`
