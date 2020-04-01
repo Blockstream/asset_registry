@@ -33,29 +33,32 @@ fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
 
     // TODO tor proxy for accessing onion
 
-    // require tls for non-onion hosts, assume http for onion ones
-    let protocol = if domain.ends_with(".onion") {
-        "http"
-    } else {
-        "https"
-    };
-
     let asset_id = asset.id().to_hex();
-    let page_url = format!(
-        "{}://{}/.well-known/liquid-asset-proof-{}",
-        protocol, domain, asset_id
-    );
+
     let expected_body = format!(
         "Authorize linking the domain name {} to the Liquid asset {}",
         domain, asset_id
     );
 
-    // use a hard-coded verification page in testing and development modes
-    #[cfg(any(test, feature = "dev"))]
-    let page_url = format!(
-        "http://127.0.0.1:58712/.well-known/liquid-asset-proof-{}",
-        asset_id
-    );
+    let page_url = if cfg!(any(test, feature = "dev")) {
+        // use a hard-coded verification page in testing and development modes
+        format!(
+            "http://127.0.0.1:58712/.well-known/liquid-asset-proof-{}",
+            asset_id
+        )
+    } else {
+        // require tls for non-onion hosts, assume http for onion ones
+        let protocol = if domain.ends_with(".onion") {
+            "http"
+        } else {
+            "https"
+        };
+
+        format!(
+            "{}://{}/.well-known/liquid-asset-proof-{}",
+            protocol, domain, asset_id
+        )
+    };
 
     debug!(
         "verifying domain name {} for {}: GET {}",
