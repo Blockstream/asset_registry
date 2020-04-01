@@ -139,9 +139,9 @@ pub mod tests {
     use rocket_contrib::json::JsonValue;
     use std::fs;
     use std::path::PathBuf;
-    use std::sync::{Once, ONCE_INIT};
+    use std::sync::Once;
 
-    static SPAWN_ONCE: Once = ONCE_INIT;
+    static SPAWN_ONCE: Once = Once::new();
 
     // a server that identifies as "test.dev" and verifies any requested asset id
     pub fn spawn_mock_esplora_server() {

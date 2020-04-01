@@ -88,9 +88,9 @@ pub mod tests {
     use crate::util::BoolOpt;
     use rocket as r;
     use std::path::PathBuf;
-    use std::sync::{Once, ONCE_INIT};
+    use std::sync::Once;
 
-    static SPAWN_ONCE: Once = ONCE_INIT;
+    static SPAWN_ONCE: Once = Once::new();
 
     // a server that identifies as "test.dev" and verifies any requested asset id
     pub fn spawn_mock_verifier_server() {
