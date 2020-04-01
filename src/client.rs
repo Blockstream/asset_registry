@@ -1,6 +1,6 @@
 use bitcoin_hashes::hex::ToHex;
 use elements::AssetId;
-use reqwest::{Client as ReqClient, StatusCode, Url};
+use reqwest::{blocking::Client as ReqClient, StatusCode, Url};
 
 use crate::asset::{Asset, AssetRequest};
 use crate::errors::{Result, ResultExt};

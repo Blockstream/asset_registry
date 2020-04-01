@@ -2,7 +2,7 @@ use std::fmt;
 
 use bitcoin_hashes::hex::ToHex;
 use failure::ResultExt;
-use reqwest;
+use reqwest::blocking::get as reqwest_get;
 
 use crate::asset::Asset;
 use crate::errors::Result;
@@ -65,7 +65,7 @@ fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
         domain, asset_id, page_url
     );
 
-    let body = reqwest::get(&page_url)
+    let body = reqwest_get(&page_url)
         .context(format!("failed fetching {}", page_url))?
         .error_for_status()?
         .text()

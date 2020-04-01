@@ -68,7 +68,7 @@ pub struct AssetFields {
             name = "domain",
             long,
             help = "Domain name to associate with the asset",
-            parse(from_str = "parse_domain_entity")
+            parse(from_str = parse_domain_entity)
         )
     )]
     pub entity: AssetEntity,
@@ -174,7 +174,7 @@ pub struct AssetRequest {
         structopt(
             long = "asset-id",
             help = "The asset-id",
-            parse(try_from_str = "AssetId::from_hex")
+            parse(try_from_str = AssetId::from_hex)
         )
     )]
     pub asset_id: AssetId,
@@ -184,7 +184,7 @@ pub struct AssetRequest {
         structopt(
             long = "contract",
             help = "The issuance contract",
-            parse(try_from_str = "serde_json::from_str")
+            parse(try_from_str = serde_json::from_str)
         )
     )]
     pub contract: Value,

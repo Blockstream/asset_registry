@@ -1,7 +1,7 @@
-use bitcoin::consensus::encode::deserialize;
-use bitcoin_hashes::{hex::ToHex, sha256, sha256d, Hash};
-use elements::{AssetId, Transaction};
-use reqwest::{Client as ReqClient, StatusCode};
+use bitcoin::{Txid, BlockHash};
+use bitcoin_hashes::{hex::ToHex, sha256, Hash};
+use elements::{AssetId, Transaction, encode::deserialize};
+use reqwest::{blocking::Client as ReqClient, StatusCode};
 use serde_json::Value;
 
 use crate::asset::Asset;
@@ -16,7 +16,7 @@ pub struct ChainQuery {
 #[derive(Deserialize)]
 pub struct BlockId {
     pub block_height: usize,
-    pub block_hash: sha256d::Hash,
+    pub block_hash: BlockHash,
     pub block_time: u32,
 }
 
@@ -28,7 +28,7 @@ impl ChainQuery {
         }
     }
 
-    pub fn get_tx(&self, txid: &sha256d::Hash) -> Result<Option<Transaction>> {
+    pub fn get_tx(&self, txid: &Txid) -> Result<Option<Transaction>> {
         let resp = self
             .rclient
             .get(&format!("{}/tx/{}/hex", self.api_url, txid.to_hex()))
@@ -48,7 +48,7 @@ impl ChainQuery {
         })
     }
 
-    pub fn get_tx_status(&self, txid: &sha256d::Hash) -> Result<Option<BlockId>> {
+    pub fn get_tx_status(&self, txid: &Txid) -> Result<Option<BlockId>> {
         let status: Value = self
             .rclient
             .get(&format!("{}/tx/{}/status", self.api_url, txid.to_hex()))

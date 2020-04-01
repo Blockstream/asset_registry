@@ -1,19 +1,18 @@
 use std::fmt;
 
+use bitcoin::Txid;
 use bitcoin::consensus::encode::{serialize, VarInt};
 use bitcoin_hashes::{hex::ToHex, sha256d, Hash};
-use failure::ResultExt;
-use idna::uts46;
 use regex::RegexSet;
 use secp256k1::Secp256k1;
 
-use crate::errors::Result;
+use crate::errors::{Result, ResultExt, OptionExt};
 
 static MSG_SIGN_PREFIX: &'static [u8] = b"\x18Bitcoin Signed Message:\n";
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TxInput {
-    pub txid: sha256d::Hash,
+    pub txid: Txid,
     pub vin: usize,
 }
 
@@ -89,7 +88,7 @@ lazy_static! {
 pub fn verify_domain_name(domain: &str) -> Result<()> {
     ensure!(!domain.starts_with('.'), "cannot start with a dot");
     ensure!(
-        idna_to_ascii(domain) == Some(domain.to_string()),
+        idna_to_ascii(domain)? == domain.to_string(),
         "should be provided in ASCII/Punycode form, not IDNA Unicode"
     );
     ensure!(
@@ -103,19 +102,16 @@ pub fn verify_domain_name(domain: &str) -> Result<()> {
     if domain.ends_with(".") {
         labels.pop();
     }
-    // a domain must not have more than 127 labels
     ensure!(labels.len() <= 127, "must not have more than 127 labels");
 
-    // shesek: a domain must have at least two parts (prevents accessing localhost)
+    // prevents using "localhost"
     ensure!(labels.len() > 1, "must have at least two labels");
 
     labels.reverse();
     for (i, label) in labels.iter().enumerate() {
-        // the tld must not be a number
         if i == 0 && label.parse::<f64>().is_ok() {
             bail!("the tld must not be a number");
         }
-        // any label must only contain allowed characters
         ensure!(
             DOMAIN_LABEL.is_match(label),
             "must only contain allowed characters"
@@ -124,16 +120,8 @@ pub fn verify_domain_name(domain: &str) -> Result<()> {
     Ok(())
 }
 
-fn idna_to_ascii(domain: &str) -> Option<String> {
-    uts46::to_ascii(
-        domain,
-        uts46::Flags {
-            use_std3_ascii_rules: false,
-            transitional_processing: true,
-            verify_dns_length: true,
-        },
-    )
-    .ok()
+fn idna_to_ascii(domain: &str) -> Result<String> {
+    Ok(idna::domain_to_ascii(domain).ok().or_err("invalid domain")?)
 }
 
 #[cfg(test)]

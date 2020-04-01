@@ -10,6 +10,7 @@ extern crate failure;
 use bitcoin_hashes::{hex::ToHex, sha256, Hash};
 use serde_json::Value;
 use structopt::StructOpt;
+use reqwest::{blocking::Client, StatusCode};
 
 use asset_registry::asset::{Asset, AssetRequest};
 use asset_registry::chain::ChainQuery;
@@ -101,9 +102,9 @@ fn main() -> Result<()> {
         } => {
             info!("submiting to registry: {:#?}", asset_req);
 
-            let client = reqwest::Client::new();
-            let mut resp = client.post(&registry_url).json(&asset_req).send()?;
-            if resp.status() != reqwest::StatusCode::CREATED {
+            let client = Client::new();
+            let resp = client.post(&registry_url).json(&asset_req).send()?;
+            if resp.status() != StatusCode::CREATED {
                 error!("invalid reply from registry: {:#?}", resp);
                 error!("{}", resp.text()?);
                 bail!("asset registeration failed")
