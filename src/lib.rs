@@ -1,4 +1,4 @@
-#![feature(proc_macro_hygiene, decl_macro)]
+#![cfg_attr(test, feature(proc_macro_hygiene, decl_macro))]
 
 extern crate base64;
 extern crate bitcoin;

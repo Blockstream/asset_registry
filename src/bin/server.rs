@@ -1,5 +1,3 @@
-#![feature(proc_macro_hygiene, decl_macro)]
-
 extern crate asset_registry;
 extern crate stderrlog;
 
