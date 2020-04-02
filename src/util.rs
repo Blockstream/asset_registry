@@ -1,12 +1,12 @@
 use std::fmt;
 
-use bitcoin::Txid;
 use bitcoin::util::misc::signed_msg_hash;
+use bitcoin::Txid;
 use bitcoin_hashes::{hex::ToHex, Hash};
 use regex::RegexSet;
 use secp256k1::Secp256k1;
 
-use crate::errors::{Result, ResultExt, OptionExt};
+use crate::errors::{OptionExt, Result, ResultExt};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TxInput {
@@ -108,7 +108,9 @@ pub fn verify_domain_name(domain: &str) -> Result<()> {
 }
 
 fn idna_to_ascii(domain: &str) -> Result<String> {
-    Ok(idna::domain_to_ascii(domain).ok().or_err("invalid domain")?)
+    Ok(idna::domain_to_ascii(domain)
+        .ok()
+        .or_err("invalid domain")?)
 }
 
 #[cfg(test)]

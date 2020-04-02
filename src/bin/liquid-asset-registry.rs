@@ -8,9 +8,9 @@ extern crate base64;
 extern crate failure;
 
 use bitcoin_hashes::{hex::ToHex, sha256, Hash};
+use reqwest::{blocking::Client, StatusCode};
 use serde_json::Value;
 use structopt::StructOpt;
-use reqwest::{blocking::Client, StatusCode};
 
 use asset_registry::asset::{Asset, AssetRequest};
 use asset_registry::chain::ChainQuery;

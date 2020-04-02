@@ -1,6 +1,6 @@
-use bitcoin::{Txid, BlockHash};
+use bitcoin::{BlockHash, Txid};
 use bitcoin_hashes::{hex::ToHex, sha256, Hash};
-use elements::{AssetId, Transaction, encode::deserialize};
+use elements::{encode::deserialize, AssetId, Transaction};
 use reqwest::{blocking::Client as ReqClient, StatusCode};
 use serde_json::Value;
 
