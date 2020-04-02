@@ -1,14 +1,12 @@
 use std::fmt;
 
 use bitcoin::Txid;
-use bitcoin::consensus::encode::{serialize, VarInt};
-use bitcoin_hashes::{hex::ToHex, sha256d, Hash};
+use bitcoin::util::misc::signed_msg_hash;
+use bitcoin_hashes::{hex::ToHex, Hash};
 use regex::RegexSet;
 use secp256k1::Secp256k1;
 
 use crate::errors::{Result, ResultExt, OptionExt};
-
-static MSG_SIGN_PREFIX: &'static [u8] = b"\x18Bitcoin Signed Message:\n";
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TxInput {
@@ -37,23 +35,12 @@ pub fn verify_bitcoin_msg(
 
     let pubkey = secp256k1::PublicKey::from_slice(pubkey)?;
     let signature = secp256k1::Signature::from_compact(&signature)?;
-    let msg_hash = bitcoin_signed_msg_hash(msg);
+    let msg_hash = signed_msg_hash(msg);
     let msg_secp = secp256k1::Message::from_slice(&msg_hash.into_inner())?;
 
     Ok(ec
         .verify(&msg_secp, &signature, &pubkey)
         .context("signature veritification failed")?)
-}
-
-fn bitcoin_signed_msg_hash(msg: &str) -> sha256d::Hash {
-    sha256d::Hash::hash(
-        &[
-            MSG_SIGN_PREFIX,
-            &serialize(&VarInt(msg.len() as u64)),
-            msg.as_bytes(),
-        ]
-        .concat(),
-    )
 }
 
 // Utility to transform booleans into Options
