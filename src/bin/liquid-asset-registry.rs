@@ -116,6 +116,7 @@ fn main() -> Result<()> {
         }
 
         Command::ContractJson { json, hash } => {
+            // deserialize and re-serialize to get canonical encoding, with just keys sorted lexicographically
             let contract: Value = serde_json::from_str(&json).context("invalid contract json")?;
             let contract_str = serde_json::to_string(&contract)?;
 
