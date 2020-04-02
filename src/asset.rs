@@ -144,10 +144,12 @@ impl Asset {
         Ok(sha256::Hash::hash(&contract_str.as_bytes()))
     }
 
-    pub fn issuer_pubkey(&self) -> Result<&str> {
-        Ok(self.contract["issuer_pubkey"]
+    pub fn issuer_pubkey(&self) -> Result<Vec<u8>> {
+        let pubkey_hex = self.contract["issuer_pubkey"]
             .as_str()
-            .or_err("missing issuer_pubkey")?)
+            .or_err("missing issuer_pubkey")?;
+
+        Ok(hex::decode(pubkey_hex).context("invalid issuer_pubkey hex")?)
     }
 
     pub fn from_request(req: AssetRequest, chain: &ChainQuery) -> Result<Self> {
@@ -217,7 +219,7 @@ fn verify_asset_fields(asset: &Asset) -> Result<()> {
         Some(signature) => {
             // If a signature is provided, verify that it signs over the fields
             verify_asset_fields_sig(
-                asset.issuer_pubkey()?,
+                &asset.issuer_pubkey()?,
                 signature,
                 &asset.asset_id,
                 &asset.fields,
@@ -235,12 +237,11 @@ fn verify_asset_fields(asset: &Asset) -> Result<()> {
 }
 
 fn verify_asset_fields_sig(
-    pubkey: &str,
+    pubkey: &[u8],
     signature: &str,
     asset_id: &AssetId,
     fields: &AssetFields,
 ) -> Result<()> {
-    let pubkey = hex::decode(pubkey).context("invalid contract.issuer_pubkey hex")?;
     let signature = base64::decode(signature).context("invalid signature base64")?;
     let msg = format_sig_msg(asset_id, fields);
 
