@@ -12,7 +12,7 @@ use structopt::StructOpt;
 use crate::chain::{verify_asset_issuance_tx, ChainQuery};
 use crate::entity::{verify_asset_link, AssetEntity};
 use crate::errors::{OptionExt, Result};
-use crate::util::{verify_bitcoin_msg, verify_domain_name, TxInput};
+use crate::util::{verify_bitcoin_msg, verify_domain_name, verify_pubkey, TxInput};
 
 lazy_static! {
     static ref EC: Secp256k1<secp256k1::VerifyOnly> = Secp256k1::verification_only();
@@ -120,6 +120,8 @@ impl Asset {
         if let Some(ticker) = &self.fields.ticker {
             ensure!(RE_TICKER.is_match(ticker), "invalid ticker");
         }
+
+        verify_pubkey(&self.issuer_pubkey()?).context("invalid issuer public key")?;
 
         let AssetEntity::DomainName(domain) = &self.fields.entity;
         verify_domain_name(domain).context("invalid domain name")?;

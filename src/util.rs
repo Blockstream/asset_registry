@@ -43,6 +43,11 @@ pub fn verify_bitcoin_msg(
         .context("signature veritification failed")?)
 }
 
+pub fn verify_pubkey(pubkey: &[u8]) -> Result<()> {
+    secp256k1::PublicKey::from_slice(pubkey)?;
+    Ok(())
+}
+
 // Utility to transform booleans into Options
 pub trait BoolOpt: Sized {
     fn as_option(self) -> Option<()>;
