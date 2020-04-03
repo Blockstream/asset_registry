@@ -5,6 +5,7 @@ use bitcoin::Txid;
 use bitcoin_hashes::{hex::ToHex, Hash};
 use regex::RegexSet;
 use secp256k1::Secp256k1;
+use serde::{Deserialize, Deserializer};
 
 use crate::errors::{OptionExt, Result, ResultExt};
 
@@ -116,6 +117,16 @@ fn idna_to_ascii(domain: &str) -> Result<String> {
     Ok(idna::domain_to_ascii(domain)
         .ok()
         .or_err("invalid domain")?)
+}
+
+/// Deserializes a base64 string to a `Vec<u8>`.
+pub fn serde_from_base64<'de, D>(deserializer: D) -> std::result::Result<Vec<u8>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::Error;
+    String::deserialize(deserializer)
+        .and_then(|string| base64::decode(&string).map_err(|err| Error::custom(err.to_string())))
 }
 
 #[cfg(test)]

@@ -16,7 +16,6 @@ use crate::util::{verify_bitcoin_msg, verify_domain_name, verify_pubkey, TxInput
 
 lazy_static! {
     static ref EC: Secp256k1<secp256k1::VerifyOnly> = Secp256k1::verification_only();
-    // XXX what characters should be allowed in the name?
     static ref RE_NAME: Regex = Regex::new(r"^[[:ascii:]]{5,255}$").unwrap();
     static ref RE_TICKER: Regex = Regex::new(r"^[a-zA-Z]{3,5}$").unwrap();
 }
@@ -85,6 +84,7 @@ fn parse_domain_entity(domain: &str) -> AssetEntity {
     AssetEntity::DomainName(domain.to_string())
 }
 
+#[cfg(feature = "cli")]
 fn default_precision() -> u8 {
     0
 }
@@ -140,6 +140,16 @@ impl Asset {
         Ok(())
     }
 
+    pub fn verify_deletion(&self, signature: &[u8]) -> Result<()> {
+        // TODO verify domain ownership proof was removed
+        verify_bitcoin_msg(
+            &EC,
+            &self.issuer_pubkey()?,
+            &signature,
+            &format_deletion_sig_msg(self),
+        )
+    }
+
     pub fn contract_hash(&self) -> Result<sha256::Hash> {
         // json keys are sorted lexicographically
         let contract_str = serde_json::to_string(&self.contract)?;
@@ -162,12 +172,15 @@ impl Asset {
         let fields =
             AssetFields::from_contract(&req.contract).context("invalid contract fields")?;
 
+        let issuance_txin = serde_json::from_value(asset_data["issuance_txin"].take())?;
+        let issuance_prevout = serde_json::from_value(asset_data["issuance_prevout"].take())?;
+
         Ok(Asset {
             asset_id: req.asset_id,
             contract: req.contract,
             fields,
-            issuance_txin: serde_json::from_value(asset_data["issuance_txin"].take())?,
-            issuance_prevout: serde_json::from_value(asset_data["issuance_prevout"].take())?,
+            issuance_txin,
+            issuance_prevout,
             signature: None,
         })
     }
@@ -245,7 +258,7 @@ fn verify_asset_fields_sig(
     fields: &AssetFields,
 ) -> Result<()> {
     let signature = base64::decode(signature).context("invalid signature base64")?;
-    let msg = format_sig_msg(asset_id, fields);
+    let msg = format_fields_sig_msg(asset_id, fields);
 
     verify_bitcoin_msg(&EC, &pubkey, &signature, &msg)?;
 
@@ -257,12 +270,21 @@ fn verify_asset_fields_sig(
     Ok(())
 }
 
-pub fn format_sig_msg(asset_id: &AssetId, fields: &AssetFields) -> String {
+fn format_fields_sig_msg(asset_id: &AssetId, fields: &AssetFields) -> String {
     serde_json::to_string(&(
-        "elements-asset-assoc",
+        "liquid-asset-fields",
         0, // version number for msg format
         asset_id.to_hex(),
         fields,
+    ))
+    .unwrap()
+}
+
+fn format_deletion_sig_msg(asset: &Asset) -> String {
+    serde_json::to_string(&(
+        "liquid-asset-deletion",
+        0, // version number for deletion request
+        asset.asset_id.to_hex(),
     ))
     .unwrap()
 }

@@ -16,6 +16,7 @@ use crate::asset::Asset;
 use crate::chain::ChainQuery;
 use crate::errors::{join_err, Result, ResultExt};
 use crate::registry::Registry;
+use crate::util::serde_from_base64;
 
 #[derive(Debug)]
 #[cfg_attr(feature = "cli", derive(StructOpt))]
@@ -195,6 +196,28 @@ fn handle_update(body: hyper::Chunk, registry: &Registry) -> Result<Resp> {
     registry.write(&asset)?;
 
     Ok(Resp::json(StatusCode::CREATED, &asset))
+}
+
+fn handle_delete(asset_id: &str, body: hyper::Chunk, registry: &Registry) -> Result<Resp> {
+    let asset_id = AssetId::from_hex(asset_id)?;
+    let asset = match registry.load(&asset_id)? {
+        None => return Ok(Resp::plain(StatusCode::NOT_FOUND, "Not found")),
+        Some(asset) => asset,
+    };
+
+    let body = String::from_utf8(body.to_vec())?;
+    let request: DeletionRequest =
+        serde_json::from_str(&body).context("failed parsing json request")?;
+
+    registry.delete(&asset, &request.signature)?;
+
+    Ok(Resp::plain(StatusCode::OK, "Asset deleted"))
+}
+
+#[derive(Deserialize)]
+struct DeletionRequest {
+    #[serde(deserialize_with = "serde_from_base64")]
+    signature: Vec<u8>,
 }
 
 // needs to be run with --test-threads 1
