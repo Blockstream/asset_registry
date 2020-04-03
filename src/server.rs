@@ -86,13 +86,13 @@ pub fn start_server(config: Config) -> Result<()> {
 
             Box::new(req.into_body().concat2().and_then(move |body| {
                 Ok(match handle_req(method, uri, body, &registry) {
-                    Ok((status, val)) => {
-                        info!("success {:?}: {:?}", status, val);
+                    Ok(resp) => {
+                        info!("replying with {:?}", resp);
 
                         Response::builder()
-                            .status(status)
-                            .header(header::CONTENT_TYPE, "application/json")
-                            .body(Body::from(serde_json::to_string(&val).unwrap()))
+                            .status(resp.status())
+                            .header(header::CONTENT_TYPE, resp.content_type())
+                            .body(resp.body())
                             .unwrap()
                     }
 
@@ -122,30 +122,67 @@ pub fn start_server(config: Config) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug)]
+enum Resp {
+    Json(StatusCode, Value),
+    Plain(StatusCode, String),
+}
+
+impl Resp {
+    fn json<T>(code: StatusCode, value: T) -> Resp
+    where
+        T: serde::ser::Serialize,
+    {
+        Resp::Json(code, serde_json::to_value(value).unwrap())
+    }
+    fn plain(code: StatusCode, message: &str) -> Resp {
+        Resp::Plain(code, message.into())
+    }
+    fn body(&self) -> Body {
+        Body::from(match self {
+            Resp::Plain(_, message) => message.into(),
+            Resp::Json(_, value) => serde_json::to_string(value).unwrap(),
+        })
+    }
+    fn content_type(&self) -> &'static str {
+        match self {
+            Resp::Plain(..) => "text/plain",
+            Resp::Json(..) => "application/json",
+        }
+    }
+    fn status(&self) -> StatusCode {
+        match self {
+            Resp::Plain(status, _) => *status,
+            Resp::Json(status, _) => *status,
+        }
+    }
+}
+
 fn handle_req(
     method: Method,
     uri: hyper::Uri,
     body: hyper::Chunk,
     registry: &Registry,
-) -> Result<(StatusCode, Value)> {
+) -> Result<Resp> {
     match (method, uri.path()) {
         (Method::POST, "/") => handle_update(body, registry),
         (Method::GET, path) => handle_get(&path[1..], registry),
+        (Method::DELETE, path) => handle_delete(&path[1..], body, registry),
 
-        _ => Ok((StatusCode::NOT_FOUND, Value::Null)),
+        _ => Ok(Resp::plain(StatusCode::NOT_FOUND, "Not Found")),
     }
 }
 
-fn handle_get(asset_id: &str, registry: &Registry) -> Result<(StatusCode, Value)> {
+fn handle_get(asset_id: &str, registry: &Registry) -> Result<Resp> {
     let asset_id = AssetId::from_hex(asset_id)?;
 
     Ok(match registry.load(&asset_id)? {
-        Some(asset) => (StatusCode::OK, serde_json::to_value(asset)?),
-        None => (StatusCode::NOT_FOUND, Value::Null),
+        Some(asset) => Resp::json(StatusCode::OK, asset),
+        None => Resp::plain(StatusCode::NOT_FOUND, "Not Found"),
     })
 }
 
-fn handle_update(body: hyper::Chunk, registry: &Registry) -> Result<(StatusCode, Value)> {
+fn handle_update(body: hyper::Chunk, registry: &Registry) -> Result<Resp> {
     let body = String::from_utf8(body.to_vec())?;
 
     let asset = Asset::from_request(
@@ -157,7 +194,7 @@ fn handle_update(body: hyper::Chunk, registry: &Registry) -> Result<(StatusCode,
 
     registry.write(&asset)?;
 
-    Ok((StatusCode::CREATED, serde_json::to_value(&asset)?))
+    Ok(Resp::json(StatusCode::CREATED, &asset))
 }
 
 // needs to be run with --test-threads 1
