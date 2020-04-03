@@ -36,9 +36,10 @@ enum Command {
         #[structopt(
             short,
             long = "esplora-url",
-            help = "url for querying chain state using the esplora api"
+            help = "url for querying chain state using the esplora api",
+            default_value = "https://blockstream.info/liquid/api/"
         )]
-        esplora_url: Option<String>,
+        esplora_url: String,
 
         jsons: Vec<String>,
     },
@@ -74,7 +75,7 @@ fn main() -> Result<()> {
 
     match args.cmd {
         Command::VerifyAsset { esplora_url, jsons } => {
-            let chain = esplora_url.map(ChainQuery::new);
+            let chain = Some(ChainQuery::new(esplora_url));
             let mut failed = false;
 
             for json in jsons {
