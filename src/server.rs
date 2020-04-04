@@ -225,11 +225,17 @@ struct DeletionRequest {
 mod tests {
     use super::*;
     use crate::{asset::Asset, chain, client::Client, entity, errors::OptionExt};
-    use bitcoin_hashes::hex::ToHex;
+    use bitcoin::util::misc::signed_msg_hash;
+    use bitcoin::PrivateKey;
+    use bitcoin_hashes::{hex::ToHex, Hash};
+    use secp256k1::Secp256k1;
     use std::{thread, time::Duration};
 
     lazy_static! {
         static ref CLIENT: Client = Client::new("http://localhost:49013".parse().unwrap());
+        static ref EC: Secp256k1<secp256k1::SignOnly> = Secp256k1::signing_only();
+        static ref ISSUER_KEY: PrivateKey =
+            PrivateKey::from_wif("cRmFPw94iHgnmUMui5brPsbH5F7wNmvgVkAGJYqZaK33F5vzCAST").unwrap();
     }
 
     fn spawn_test_server() {
@@ -260,26 +266,44 @@ mod tests {
     }
 
     #[test]
-    fn test1_write_commited() -> Result<()> {
-        let asset = CLIENT.register(&serde_json::from_str(r#"{
-            "asset_id":"837de7388f6a17261ddb8757ec4b64e01137bc7cf13e9f0ec653bdc0cafe44a0",
+    fn test1_register_then_delete() -> Result<()> {
+        // Register
+        let issuer_pubkey = ISSUER_KEY.public_key(&EC);
+        let asset_req = serde_json::from_value(json!({
+            "asset_id":"b1405e4eefa91c6690198b4f85d73e8e0babee08f73b2c8af411486dc28dbc05",
             "contract":{
                 "entity":{"domain":"test.dev"},
-                "issuer_pubkey":"03ed9530a9ae5aacdc377e3c9cfbf03a4b21c6af5fa45e2df73a52edb8ee2fe70f",
-                "name":"Bar Coin",
-                "ticker":"BAR",
+                "issuer_pubkey": issuer_pubkey,
+                "name":"PPP coin",
+                "ticker":"PPP",
                 "version":0
             },
-            "issuance_txin":{
-                "txid":"4f8cf0a4d3fc20a718bbd010991b1db4101548d473e4d7894ac25dc40a57d899",
-                "vin":0
-            }
-        }"#)?)?;
+        }))?;
 
-        assert_eq!(asset.name(), "Bar Coin");
+        let asset = CLIENT.register(&asset_req)?;
+        assert_eq!(asset.name(), "PPP coin");
+        info!("asset created succesfully");
+
+        // Delete
+        let msg_to_sign = format!(
+            "[\"liquid-asset-deletion\",0,\"{}\"]",
+            asset.asset_id.to_hex()
+        );
+        let msg_hash = signed_msg_hash(&msg_to_sign);
+        let msg_secp = secp256k1::Message::from_slice(&msg_hash.into_inner())?;
+        let signature = EC.sign(&msg_secp, &ISSUER_KEY.key).serialize_compact();
+
+        CLIENT.delete(&asset.asset_id, &signature)?;
+
+        ensure!(CLIENT.get(&asset.asset_id)?.is_none());
+        info!("asset deleted succesfully");
+
+        // re-register for followup tests
+        CLIENT.register(&asset_req)?;
 
         Ok(())
     }
+
     /*
     #[test]
     fn test2_write_signed() -> Result<()> {
@@ -318,19 +342,20 @@ mod tests {
 
     #[test]
     fn test4_get() -> Result<()> {
+        let asset_id =
+            AssetId::from_hex("b1405e4eefa91c6690198b4f85d73e8e0babee08f73b2c8af411486dc28dbc05")?;
+
         let asset: Asset = CLIENT
-            .get(&AssetId::from_hex(
-                "837de7388f6a17261ddb8757ec4b64e01137bc7cf13e9f0ec653bdc0cafe44a0",
-            )?)?
+            .get(&asset_id)?
             .or_err("registered asset not found")?;
 
         debug!("asset: {:?}", asset);
 
         assert_eq!(
             asset.id().to_hex(),
-            "837de7388f6a17261ddb8757ec4b64e01137bc7cf13e9f0ec653bdc0cafe44a0",
+            "b1405e4eefa91c6690198b4f85d73e8e0babee08f73b2c8af411486dc28dbc05",
         );
-        assert_eq!(asset.name(), "Bar Coin");
+        assert_eq!(asset.name(), "PPP coin");
         Ok(())
     }
 }

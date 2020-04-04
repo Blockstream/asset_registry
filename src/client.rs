@@ -63,4 +63,15 @@ impl Client {
             .json()
             .context("failed parsing asset from registry")?)
     }
+
+    pub fn delete(&self, asset_id: &AssetId, signature: &[u8]) -> Result<()> {
+        self.rclient
+            .delete(self.registry_url.join(&asset_id.to_hex())?)
+            .json(&json!({ "signature": base64::encode(signature) }))
+            .send()
+            .context("failed sending deletion request to registry")?
+            .error_for_status()
+            .context("asset deletion failed")?;
+        Ok(())
+    }
 }
