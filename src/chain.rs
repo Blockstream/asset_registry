@@ -150,7 +150,10 @@ pub mod tests {
                 .port(58713)
                 .finalize()
                 .unwrap();
-            let rocket = r::custom(config).mount("/", routes![tx_hex_handler, tx_status_handler]);
+            let rocket = r::custom(config).mount(
+                "/",
+                routes![tx_hex_handler, tx_status_handler, asset_handler],
+            );
 
             std::thread::spawn(|| rocket.launch());
         })
@@ -168,6 +171,21 @@ pub mod tests {
             "block_height": 999,
             "block_hash": "6ef1b8ac6cfacae9493e8d214d5ddd70322abe39bc0ab82727849b47bfb1fce6",
             "block_time": 1556733700
+        }))
+    }
+
+    #[get("/asset/<_asset_id>")]
+    fn asset_handler(_asset_id: String) -> JsonValue {
+        JsonValue::from(json!({
+            // some fields unnecessary for testing ommitted
+             "issuance_txin": {
+                 "txid": "9b75a545ff42c403839b0be69c1047144dc3e778c0d937d85c71538f169eebb5",
+                 "vin": 0
+             },
+             "issuance_prevout": {
+                 "txid": "c1854811ffe022a023e42769a703d434a40cb3dc16407e1a47aa6279d6cd48b4",
+                 "vout": 2
+             },
         }))
     }
 
