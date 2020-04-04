@@ -59,16 +59,19 @@ append_json_key() {
 # Pull remote git updates, only accepting fast-forwards signed by the gpg
 # key specified in ./signing-key.asc
 git_update() {
+  GPG_ARGS="--no-default-keyring --keyring ./gitkey.gpg --trustdb-name ./gittrustdb.gpg"
+
   # Create the local keyring file with just the assets db signing key
   if [ ! -f gitkey.gpg ]; then
-    gpg2 --no-default-keyring --keyring ./gitkey.gpg --import signing-key.asc
+    gpg2 $GPG_ARGS --import signing-key.asc
+    added_keyid=`gpg2 $GPG_ARGS --list-keys --with-colons | awk -F: '/^pub:/ { print $5  }'`
     # mark as trusted (https://raymii.org/s/articles/GPG_noninteractive_batch_sign_trust_and_send_gnupg_keys.html)
-    echo -e "5\ny\n" |  gpg2 --no-default-keyring --keyring ./gitkey.gpg --command-fd 0 --edit-key 'Liquid registry assets' trust
+    echo -e "5\ny\n" | gpg2 $GPG_ARGS --command-fd 0 --edit-key $added_keyid trust
   fi
 
   # Setup a "gitpgp" command to only accept keys from the local keyring file
   if [ ! -f gitgpg ]; then
-    echo -e '#!/bin/sh\nexec gpg2 --no-default-keyring --keyring ./gitkey.gpg "$@"' > gitgpg
+    echo -e '#!/bin/sh\nexec gpg2 '"$GPG_ARGS"' "$@"' > gitgpg
     chmod +x gitgpg
   fi
 
