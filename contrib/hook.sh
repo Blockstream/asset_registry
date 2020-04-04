@@ -8,21 +8,23 @@ archive_path=$www_dir/index.tar.xz
 full_index_path=./index.json
 minimal_index_path=./index.minimal.json
 
+mkdir -p $www_dir
+
 main() {
   asset_id=$1
   asset_path=$2
-
-  echo "Registry in `pwd` updated, written asset $asset_id to $asset_path"
+  update_type=$3
 
   [ -d .git ] && git_update
 
-  # Maintain index.json with a full map of asset id -> asset data,
-  # and index.minimal.json with a more concise representation
-  json_full="$(cat $2)"
-  json_minimal="$(cat $2 | jq -c '[.entity.domain,.ticker,.name,.precision]')"
+  if [[ ( -f $asset_path && "$update_type" != "add" ) || ( ! -f $asset_path && "$update_type" != "delete" ) ]]; then
+    echo >2 invalid update_type
+    exit 1
+  fi
 
-  append_json_key $full_index_path $asset_id "$json_full"
-  append_json_key $minimal_index_path $asset_id "$json_minimal"
+  echo "Registry in `pwd` updated, $update_type asset $asset_id at $asset_path"
+
+  index_${update_type}_asset $asset_id $asset_path
 
   # Commit to git and push
   if [ -d .git ]; then
@@ -31,29 +33,56 @@ main() {
     git push
   fi
 
-  # Make asset available in public www dir
-  mkdir -p $www_dir
-  ln -s `realpath $asset_path` $www_dir/$asset_id.json
+  # Make asset available in the public www dir only *after* this was successfully synced with git
+  if [ $update_type = "add" ]; then
+    ln -s `realpath $asset_path` $www_dir/$asset_id.json
+  elif [ $update_type = "delete" ]; then
+    rm $www_dir/$asset_id.json
+  fi
 
-  # Overwrite public index maps with the updated ones
+  # Overwrite public json index maps with the updated ones
   cp $full_index_path $minimal_index_path $www_dir/
 
   # Update tar.xz archive
   tar cJf $archive_path _map ??/*.json
 }
 
-# Assumes keys are only added and never updated (updating assets is currently not allowed by the api server)
+index_add_asset() {
+  asset_id=$1
+  asset_path=$2
+
+  # Maintain index.json with a full map of asset id -> asset data,
+  # and index.minimal.json with a more concise representation
+  json_full="$(cat $2)"
+  json_minimal="$(cat $2 | jq -c '[.entity.domain,.ticker,.name,.precision]')"
+
+  append_json_key $full_index_path $asset_id "$json_full"
+  append_json_key $minimal_index_path $asset_id "$json_minimal"
+}
+
+index_delete_asset() {
+  asset_id=$1
+  asset_path=$2
+
+  remove_json_key $full_index_path $asset_id
+  remove_json_key $minimal_index_path $asset_id
+}
+
 append_json_key() {
   json_file=$1
   key=$2
   value=$3
-  if [ ! -f $json_file ]; then
-    echo -n '{' > $json_file
-  else
-    truncate -s-1 $json_file
-    echo ',' >> $json_file
-  fi
-  echo -n '"'$key'":'"$value"'}' >> $json_file
+
+  jq -c ".["\""$key"\""]=$value" $1 > $1.new
+  mv $1.new $1
+}
+
+remove_json_key() {
+  json_file=$1
+  key=$2
+
+  jq -c "del(.["\""$key"\""])" $1 > $1.new
+  mv $1.new $1
 }
 
 # Pull remote git updates, only accepting fast-forwards signed by the gpg

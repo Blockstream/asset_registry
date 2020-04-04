@@ -58,7 +58,7 @@ impl Registry {
         asset_fh.write()?;
 
         if let Err(err) = self
-            .exec_hook(&asset.asset_id, &asset_fh.abs_path()?)
+            .exec_hook(&asset.asset_id, &asset_fh.abs_path()?, "add")
             .context("hook script failed")
         {
             warn!("hook failed: {:?}", err);
@@ -81,13 +81,18 @@ impl Registry {
         debug!("deleting asset {:?}", asset.asset_id);
         asset_fh.delete()?;
 
-        self.exec_hook(&asset.asset_id, &abs_path)
+        self.exec_hook(&asset.asset_id, &abs_path, "delete")
             .context("hook script failed")?;
 
         Ok(())
     }
 
-    fn exec_hook(&self, asset_id: &AssetId, asset_path: &path::Path) -> Result<()> {
+    fn exec_hook(
+        &self,
+        asset_id: &AssetId,
+        asset_path: &path::Path,
+        update_type: &str,
+    ) -> Result<()> {
         if let Some(cmd) = &self.hook_cmd {
             debug!("running hook {} for {:?}", cmd, asset_id);
 
@@ -95,6 +100,7 @@ impl Registry {
                 .current_dir(&self.directory)
                 .arg(asset_id.to_hex())
                 .arg(asset_path.to_str().req()?)
+                .arg(update_type)
                 .output()?;
             debug!(
                 "hook exited with {:?}\n## stdout: {}\n## stderr: {}",
