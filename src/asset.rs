@@ -231,7 +231,11 @@ fn verify_asset_commitment(asset: &Asset) -> Result<()> {
 // Verify the asset fields
 fn verify_asset_fields(asset: &Asset) -> Result<()> {
     match &asset.signature {
-        Some(signature) => {
+        Some(_signature) => {
+            // updating assets is currently unsupported
+            bail!("updates are disabled");
+
+            /*
             // If a signature is provided, verify that it signs over the fields
             verify_asset_fields_sig(
                 &asset.issuer_pubkey()?,
@@ -239,6 +243,7 @@ fn verify_asset_fields(asset: &Asset) -> Result<()> {
                 &asset.asset_id,
                 &asset.fields,
             )
+            */
         }
         None => {
             // Otherwise, verify that the fields match the commited contract
@@ -251,6 +256,8 @@ fn verify_asset_fields(asset: &Asset) -> Result<()> {
     }
 }
 
+// Signed fields are currently unsupported, only commited ones
+/*
 fn verify_asset_fields_sig(
     pubkey: &[u8],
     signature: &str,
@@ -272,13 +279,14 @@ fn verify_asset_fields_sig(
 
 fn format_fields_sig_msg(asset_id: &AssetId, fields: &AssetFields) -> String {
     serde_json::to_string(&(
-        "liquid-asset-fields",
+        "liquid-asset-assoc",
         0, // version number for msg format
         asset_id.to_hex(),
         fields,
     ))
     .unwrap()
 }
+*/
 
 fn format_deletion_sig_msg(asset: &Asset) -> String {
     serde_json::to_string(&(
@@ -311,6 +319,7 @@ mod tests {
         Ok(())
     }
 
+    /*
     #[test]
     fn test2_verify_asset_sig() -> Result<()> {
         let asset = Asset::load(PathBuf::from("test/asset-signed.json")).unwrap();
@@ -321,5 +330,5 @@ mod tests {
             &asset.fields,
         )?;
         Ok(())
-    }
+    }*/
 }
