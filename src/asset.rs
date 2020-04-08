@@ -142,7 +142,6 @@ impl Asset {
     }
 
     pub fn verify_deletion(&self, signature: &[u8]) -> Result<()> {
-        // TODO verify domain ownership proof was removed
         verify_bitcoin_msg(
             &EC,
             &self.issuer_pubkey()?,
