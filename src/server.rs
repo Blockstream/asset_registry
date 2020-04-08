@@ -285,10 +285,7 @@ mod tests {
         info!("asset created succesfully");
 
         // Delete
-        let msg_to_sign = format!(
-            "[\"liquid-asset-deletion\",0,\"{}\"]",
-            asset.asset_id.to_hex()
-        );
+        let msg_to_sign = format!("remove {} from registry", asset.asset_id);
         let msg_hash = signed_msg_hash(&msg_to_sign);
         let msg_secp = secp256k1::Message::from_slice(&msg_hash.into_inner())?;
         let signature = EC.sign(&msg_secp, &ISSUER_KEY.key).serialize_compact();
