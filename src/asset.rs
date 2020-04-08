@@ -297,12 +297,7 @@ fn format_fields_sig_msg(asset_id: &AssetId, fields: &AssetFields) -> String {
 */
 
 fn format_deletion_sig_msg(asset: &Asset) -> String {
-    serde_json::to_string(&(
-        "liquid-asset-deletion",
-        0, // version number for deletion request
-        asset.asset_id.to_hex(),
-    ))
-    .unwrap()
+    format!("remove {} from registry", asset.asset_id)
 }
 
 #[cfg(test)]
