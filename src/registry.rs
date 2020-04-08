@@ -1,4 +1,5 @@
 use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
 use std::{fs, path, process::Command};
 
 use bitcoin_hashes::hex::ToHex;
@@ -58,7 +59,7 @@ impl Registry {
         asset_fh.write()?;
 
         if let Err(err) = self
-            .exec_hook(&asset.asset_id, &asset_fh.abs_path()?, "add")
+            .exec_hook(&asset.asset_id, &asset_fh.abs_path()?, "add", None)
             .context("hook script failed")
         {
             warn!("hook failed: {:?}", err);
@@ -81,7 +82,7 @@ impl Registry {
         debug!("deleting asset {:?}", asset.asset_id);
         asset_fh.delete()?;
 
-        self.exec_hook(&asset.asset_id, &abs_path, "delete")
+        self.exec_hook(&asset.asset_id, &abs_path, "delete", Some(signature))
             .context("hook script failed")?;
 
         Ok(())
@@ -92,15 +93,22 @@ impl Registry {
         asset_id: &AssetId,
         asset_path: &path::Path,
         update_type: &str,
+        signature: Option<&[u8]>,
     ) -> Result<()> {
         if let Some(cmd) = &self.hook_cmd {
             debug!("running hook {} for {:?}", cmd, asset_id);
+
+            let mut envs = HashMap::new();
+            if let Some(sig) = signature {
+                envs.insert("AUTHORIZING_SIG", base64::encode(sig));
+            }
 
             let output = Command::new(cmd)
                 .current_dir(&self.directory)
                 .arg(asset_id.to_hex())
                 .arg(asset_path.to_str().req()?)
                 .arg(update_type)
+                .envs(envs)
                 .output()?;
             debug!(
                 "hook exited with {:?}\n## stdout: {}\n## stderr: {}",

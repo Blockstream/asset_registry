@@ -29,7 +29,13 @@ main() {
   # Commit to git and push
   if [ -d .git ]; then
     git add $asset_path $full_index_path $minimal_index_path _map
-    git $GIT_COMMIT_OPTIONS -m "$update_type asset $asset_id"
+
+    commit_msg="$update_type asset $asset_id"
+    if [ -n "${AUTHORIZING_SIG-}" ]; then
+      commit_msg="$commit_msg"$'\n\n'"issuer signature: $AUTHORIZING_SIG"
+    fi
+
+    git $GIT_COMMIT_OPTIONS -m "$commit_msg"
     git push
   fi
 
