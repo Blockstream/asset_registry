@@ -7,12 +7,13 @@ extern crate base64;
 #[macro_use]
 extern crate failure;
 
-use bitcoin_hashes::{hex::ToHex, sha256, Hash};
 use reqwest::{blocking::Client, StatusCode};
 use serde_json::Value;
 use structopt::StructOpt;
 
-use asset_registry::asset::{Asset, AssetRequest};
+use bitcoin_hashes::hex::ToHex;
+
+use asset_registry::asset::{contract_json_hash, Asset, AssetRequest};
 use asset_registry::chain::ChainQuery;
 use asset_registry::errors::{join_err, Result, ResultExt};
 
@@ -117,16 +118,14 @@ fn main() -> Result<()> {
         }
 
         Command::ContractJson { json, hash } => {
-            // deserialize and re-serialize to get canonical encoding, with just keys sorted lexicographically
             let contract: Value = serde_json::from_str(&json).context("invalid contract json")?;
-            let contract_str = serde_json::to_string(&contract)?;
 
             if hash {
-                let mut hash = sha256::Hash::hash(&contract_str.as_bytes()).into_inner();
-                // reverse the hash to match the format expected by elementsd for the contract_hash
-                hash.reverse();
-                println!("{}", hex::encode(hash));
+                let hash = contract_json_hash(&contract)?;
+                println!("{}", hash.to_hex());
             } else {
+                // deserializing and re-serializing gets us canonical encoding, with json keys sorted lexicographically
+                let contract_str = serde_json::to_string(&contract)?;
                 println!("{}", contract_str);
             }
         }

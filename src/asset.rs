@@ -1,13 +1,14 @@
 use std::{fs, path};
 
-use bitcoin_hashes::{hex::FromHex, hex::ToHex, sha256, Hash};
-use elements::{AssetId, OutPoint};
 use failure::ResultExt;
 use regex::Regex;
-use secp256k1::Secp256k1;
 use serde_json::Value;
 #[cfg(feature = "cli")]
 use structopt::StructOpt;
+
+use bitcoin_hashes::{hex::FromHex, hex::ToHex, sha256, Hash};
+use elements::{issuance::ContractHash, AssetId, OutPoint};
+use secp256k1::Secp256k1;
 
 use crate::chain::{verify_asset_issuance_tx, ChainQuery};
 use crate::entity::{verify_asset_link, AssetEntity};
@@ -150,10 +151,8 @@ impl Asset {
         )
     }
 
-    pub fn contract_hash(&self) -> Result<sha256::Hash> {
-        // json keys are sorted lexicographically
-        let contract_str = serde_json::to_string(&self.contract)?;
-        Ok(sha256::Hash::hash(&contract_str.as_bytes()))
+    pub fn contract_hash(&self) -> Result<ContractHash> {
+        contract_json_hash(&self.contract)
     }
 
     pub fn issuer_pubkey(&self) -> Result<Vec<u8>> {
@@ -184,6 +183,16 @@ impl Asset {
             signature: None,
         })
     }
+}
+
+pub fn contract_json_hash(contract: &Value) -> Result<ContractHash> {
+    // serde_json sorts keys lexicographically
+    let contract_str = serde_json::to_string(contract)?;
+
+    // use the ContractHash representation for correct (reverse) hex encoding,
+    // but use a single SHA256 instead of the double hash assumed by ContractHash::hash()
+    let hash = sha256::Hash::hash(&contract_str.as_bytes());
+    Ok(ContractHash::from_inner(hash.into_inner()))
 }
 
 #[cfg_attr(feature = "cli", derive(StructOpt))]

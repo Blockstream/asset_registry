@@ -1,8 +1,9 @@
-use bitcoin::{BlockHash, Txid};
-use bitcoin_hashes::{hex::ToHex, sha256, Hash};
-use elements::{encode::deserialize, AssetId, Transaction};
 use reqwest::{blocking::Client as ReqClient, StatusCode};
 use serde_json::Value;
+
+use bitcoin::{BlockHash, Txid};
+use bitcoin_hashes::{hex::ToHex, Hash};
+use elements::{encode::deserialize, issuance::ContractHash, AssetId, Transaction};
 
 use crate::asset::Asset;
 use crate::errors::{OptionExt, Result, ResultExt};
@@ -115,7 +116,7 @@ pub fn verify_asset_issuance_tx(chain: &ChainQuery, asset: &Asset) -> Result<Blo
     // sanity check
     let entropy = AssetId::generate_asset_entropy(
         txin.previous_output,
-        sha256::Hash::from_inner(txin.asset_issuance.asset_entropy),
+        ContractHash::from_inner(txin.asset_issuance.asset_entropy),
     );
     ensure!(
         AssetId::from_entropy(entropy) == asset.asset_id,

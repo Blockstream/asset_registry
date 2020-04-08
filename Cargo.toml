@@ -42,3 +42,7 @@ required-features = [ "cli", "server" ]
 [[bin]]
 name = "liquid-asset-registry"
 required-features = [ "cli" ]
+
+[patch.crates-io.elements]
+git = "https://github.com/elementsproject/rust-elements"
+rev = "fc27e53046d531b5ea65617fbfeea62e84ba10d4"
