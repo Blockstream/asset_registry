@@ -1,6 +1,7 @@
 #!/bin/bash
 set -Eeuxo pipefail
 
+: ${GIT_OPTIONS:=""}
 : ${GIT_COMMIT_OPTIONS:=--gpg-sign}
 
 www_dir=./public
@@ -35,7 +36,7 @@ main() {
       commit_msg="$commit_msg"$'\n\n'"issuer signature: $AUTHORIZING_SIG"
     fi
 
-    git $GIT_COMMIT_OPTIONS -m "$commit_msg"
+    git $GIT_OPTIONS commit $GIT_COMMIT_OPTIONS -m "$commit_msg"
     git push
   fi
 
