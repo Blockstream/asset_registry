@@ -36,41 +36,16 @@ pub struct Asset {
     pub signature: Option<String>,
 }
 
-// Fields selected freely by the issuer
-// Also used directly by structopt to parse CLI args
+// Issuer-supplied fields
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[cfg_attr(feature = "cli", derive(StructOpt))]
 pub struct AssetFields {
-    #[cfg_attr(
-        feature = "cli",
-        structopt(long, help = "Asset name (5-255 ascii characters)")
-    )]
     pub name: String,
 
-    #[cfg_attr(
-        feature = "cli",
-        structopt(long, help = "Asset ticker (3-5 alphanumeric characters)")
-    )]
     pub ticker: Option<String>,
 
-    #[cfg_attr(
-        feature = "cli",
-        structopt(long, default_value = "0", help = "Asset decimal precision (up to 8)")
-    )]
     #[serde(default = "default_precision")]
     pub precision: u8,
 
-    // Domain name is currently the only entity type,
-    // translate the --domain CLI arg into AssetEntity::DomainName
-    #[cfg_attr(
-        feature = "cli",
-        structopt(
-            name = "domain",
-            long,
-            help = "Domain name to associate with the asset",
-            parse(from_str = parse_domain_entity)
-        )
-    )]
     pub entity: AssetEntity,
 }
 
@@ -80,12 +55,6 @@ impl AssetFields {
     }
 }
 
-#[cfg(feature = "cli")]
-fn parse_domain_entity(domain: &str) -> AssetEntity {
-    AssetEntity::DomainName(domain.to_string())
-}
-
-#[cfg(feature = "cli")]
 fn default_precision() -> u8 {
     0
 }
