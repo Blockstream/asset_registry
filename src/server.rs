@@ -2,7 +2,7 @@ use std::net;
 use std::path::PathBuf;
 
 use bitcoin_hashes::hex::FromHex;
-use elements::AssetId;
+use elements::{issuance::ContractHash, AssetId};
 use hyper::rt::{Future, Stream};
 use hyper::service::service_fn;
 use hyper::{header, Body, Method, Request, Response, Server, StatusCode};
@@ -169,6 +169,7 @@ fn handle_req(
         (Method::POST, "/") => handle_update(body, registry),
         (Method::GET, path) => handle_get(&path[1..], registry),
         (Method::DELETE, path) => handle_delete(&path[1..], body, registry),
+        (Method::POST, "/contract/validate") => handle_contract_validate(body),
 
         _ => Ok(Resp::plain(StatusCode::NOT_FOUND, "Not Found")),
     }
@@ -184,10 +185,8 @@ fn handle_get(asset_id: &str, registry: &Registry) -> Result<Resp> {
 }
 
 fn handle_update(body: hyper::Chunk, registry: &Registry) -> Result<Resp> {
-    let body = String::from_utf8(body.to_vec())?;
-
     let asset = Asset::from_request(
-        serde_json::from_str(&body).context("failed parsing json request")?,
+        serde_json::from_slice(&body.to_vec()).context("failed parsing json request")?,
         registry.chain(),
     )?;
 
@@ -214,10 +213,24 @@ fn handle_delete(asset_id: &str, body: hyper::Chunk, registry: &Registry) -> Res
     Ok(Resp::plain(StatusCode::OK, "Asset deleted"))
 }
 
+fn handle_contract_validate(body: hyper::Chunk) -> Result<Resp> {
+    let request: ValidationRequest =
+        serde_json::from_slice(&body.to_vec()).context("invalid validation request")?;
+
+    Asset::validate_contract(&request.contract, &request.contract_hash)?;
+    Ok(Resp::plain(StatusCode::OK, "valid"))
+}
+
 #[derive(Deserialize)]
 struct DeletionRequest {
     #[serde(deserialize_with = "serde_from_base64")]
     signature: Vec<u8>,
+}
+
+#[derive(Deserialize)]
+struct ValidationRequest {
+    contract: Value,
+    contract_hash: ContractHash,
 }
 
 // needs to be run with --test-threads 1
