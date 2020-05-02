@@ -1,6 +1,7 @@
 use bitcoin_hashes::hex::ToHex;
-use elements::AssetId;
+use elements::{issuance::ContractHash, AssetId};
 use reqwest::{blocking::Client as ReqClient, StatusCode, Url};
+use serde_json::Value;
 
 use crate::asset::{Asset, AssetRequest};
 use crate::errors::{Result, ResultExt};
@@ -72,6 +73,20 @@ impl Client {
             .context("failed sending deletion request to registry")?
             .error_for_status()
             .context("asset deletion failed")?;
+        Ok(())
+    }
+
+    pub fn validate_contract(&self, contract: &Value, contract_hash: &ContractHash) -> Result<()> {
+        let resp = self
+            .rclient
+            .post(self.registry_url.join("/contract/validate")?)
+            .json(&json!({ "contract": contract, "contract_hash": contract_hash }))
+            .send()
+            .context("failed sending validation request to registry")?;
+
+        if resp.status() != StatusCode::OK {
+            bail!("validation failed: {}", resp.text()?);
+        }
         Ok(())
     }
 }

@@ -242,7 +242,7 @@ mod tests {
     use bitcoin::PrivateKey;
     use bitcoin_hashes::{hex::ToHex, Hash};
     use secp256k1::Secp256k1;
-    use std::{thread, time::Duration};
+    use std::{str::FromStr, thread, time::Duration};
 
     lazy_static! {
         static ref CLIENT: Client = Client::new("http://localhost:49013".parse().unwrap());
@@ -367,5 +367,93 @@ mod tests {
         );
         assert_eq!(asset.name(), "PPP coin");
         Ok(())
+    }
+
+    #[test]
+    fn test_validate_contract() -> Result<()> {
+        try_contract(
+            json!({
+                "entity":{"domain":"test.dev"},
+                "issuer_pubkey": "037c7db0528e8b7b58e698ac104764f6852d74b5a7335bffcdad0ce799dd7742ec",
+                "name":"PPP coin",
+                "ticker":"PPP",
+                "version":0
+            }),
+            ContractHash::from_str(
+                "ac5a08996e50a12b38e2ad9e5e3ff2899db889b08422361d9fbed65d7b9c209b",
+            )?,
+            None,
+        )?;
+
+        try_contract(
+            json!({
+                "entity":{"domain":"test.dev"},
+                "issuer_pubkey": "037c7db0528e8b7b58e698ac104764f6852d74b5a7335bffcdad0ce799dd7742ec",
+                "name":"PPP coin",
+                "ticker":"PPP",
+                "version":2
+            }),
+            ContractHash::from_str(
+                "ac5a08996e50a12b38e2ad9e5e3ff2899db889b08422361d9fbed65d7b9c209b",
+            )?,
+            Some("unknown `version`"),
+        )?;
+
+        try_contract(
+            json!({
+                "entity":{"domain":"test.dev"},
+                "issuer_pubkey": "037c7db0528e8b7b58e698ac104764f6852d74b5a7335bffcdad0ce799dd7742ec",
+                "name":"PPP coin",
+                "ticker":"PPP*",
+                "version":0
+            }),
+            ContractHash::from_str(
+                "ac5a08996e50a12b38e2ad9e5e3ff2899db889b08422361d9fbed65d7b9c209b",
+            )?,
+            Some("invalid `ticker`"),
+        )?;
+
+        try_contract(
+            json!({
+                "entity":{"domain":"test.dev"},
+                "issuer_pubkey": "037c7db0528e8b7b58e698ac104764f6852d74b5a7335bffcdad0ce799dd7742ec",
+                "name":"PPP coin",
+                "ticker":"PPP",
+                "version":0
+            }),
+            ContractHash::from_str(
+                "000008996e50a12b38e2ad9e5e3ff2899db889b08422361d9fbed65d7b9c209b",
+            )?,
+            Some("contract hash mismatch"),
+        )?;
+
+        Ok(())
+    }
+
+    fn try_contract(
+        contract: Value,
+        contract_hash: ContractHash,
+        expected_error: Option<&str>,
+    ) -> Result<()> {
+        match (
+            CLIENT.validate_contract(&contract, &contract_hash),
+            expected_error,
+        ) {
+            (Ok(()), None) => Ok(()),
+            (Ok(()), Some(expected)) => bail!("expected {} to fail with '{}'", contract, expected),
+            (Err(err), None) => bail!("{} failed with '{}'", contract, err),
+            (Err(err), Some(expected)) => {
+                if err.to_string().contains(expected) {
+                    Ok(())
+                } else {
+                    bail!(
+                        "{} failed with '{}', expected to fail with '{}'",
+                        contract,
+                        err,
+                        expected
+                    )
+                }
+            }
+        }
     }
 }
