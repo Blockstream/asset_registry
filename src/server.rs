@@ -34,13 +34,13 @@ pub struct Config {
 
     #[cfg_attr(
         feature = "cli",
-        structopt(short, long, help = "http server listen address (host:port)")
+        structopt(short, long, env, help = "http server listen address (host:port)")
     )]
     addr: net::SocketAddr,
 
     #[cfg_attr(
         feature = "cli",
-        structopt(short, long = "db-path", help = "Path to database directory")
+        structopt(short, long = "db-path", env, help = "Path to database directory")
     )]
     db_path: PathBuf,
 
@@ -49,6 +49,7 @@ pub struct Config {
         structopt(
             short,
             long = "hook-cmd",
+            env,
             help = "Hook script to run after every registry update"
         )
     )]
@@ -59,6 +60,7 @@ pub struct Config {
         structopt(
             short,
             long = "esplora-url",
+            env,
             help = "url for querying chain state using the esplora api"
         )
     )]
