@@ -1,0 +1,28 @@
+version: "3"
+services:
+    registry:
+        build: .
+        environment:
+        - DB_GIT_REMOTE=${DB_GIT_REMOTE:-git@github.com:Blockstream/asset_registry_db.git}
+        - ESPLORA_URL=${ESPLORA_URL:-https://blockstream.info/liquid/api}
+        expose: [ "8000" ]
+        volumes:
+        - db:/app/db
+        - www:/app/www
+        - ${GPG_KEY_PATH:-./keys/signing-privkey.asc}:/app/signing-privkey.asc
+        - ${SSH_KEY_PATH:-./keys/id_ed25519}:/root/.ssh/id_${SSH_KEY_CIPHER:-ed25519}
+    nginx:
+        image: nginx:1.21
+        environment:
+        - NGINX_HOST=assets.blockstream.info
+        expose: [ "80" ]
+        ports: [ "80:80" ]
+        volumes:
+        - www:/app/www
+        - db:/app/db
+        - ./contrib/nginx.conf:/etc/nginx/templates/default.conf.template
+        depends_on: [ registry ]
+        links: [ registry ]
+volumes:
+    www:
+    db:
