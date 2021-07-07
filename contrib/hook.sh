@@ -3,13 +3,13 @@ set -Eeuxo pipefail
 
 : ${GIT_OPTIONS:=""}
 : ${GIT_COMMIT_OPTIONS:=--gpg-sign}
+: ${WWW_PATH:=../www}
 
-www_dir=./public
-archive_path=$www_dir/index.tar.xz
+archive_path=$WWW_PATH/index.tar.xz
 full_index_path=./index.json
 minimal_index_path=./index.minimal.json
 
-mkdir -p $www_dir
+mkdir -p $WWW_PATH
 
 main() {
   asset_id=$1
@@ -40,15 +40,15 @@ main() {
     git push
   fi
 
-  # Make asset available in the public www dir only *after* this was successfully synced with git
+  # Update the asset in the public www dir only *after* it was successfully synced with git
   if [ $update_type = "add" ]; then
-    ln -s `realpath $asset_path` $www_dir/$asset_id.json
+    ln -fs `realpath $asset_path` $WWW_PATH/$asset_id.json
   elif [ $update_type = "delete" ]; then
-    rm $www_dir/$asset_id.json
+    rm $WWW_PATH/$asset_id.json
   fi
 
   # Overwrite public json index maps with the updated ones
-  cp $full_index_path $minimal_index_path $www_dir/
+  cp $full_index_path $minimal_index_path $WWW_PATH/
 
   # Update tar.xz archive
   tar cJf $archive_path _map ??/*.json
