@@ -23,6 +23,15 @@ services:
         - ./contrib/nginx.conf:/etc/nginx/templates/default.conf.template
         depends_on: [ registry ]
         links: [ registry ]
+    onion:
+        build:
+            dockerfile: contrib/onion.Dockerfile
+            context: .
+        depends_on: [ nginx ]
+        links: [ nginx ]
+        volumes:
+        - ${ONION_PATH:-./keys/onion}:/var/lib/tor/onion_service
+
 volumes:
     www:
     db:

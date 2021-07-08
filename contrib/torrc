@@ -1,0 +1,3 @@
+HiddenServiceDir /var/lib/tor/onion_service/
+HiddenServiceVersion 3
+HiddenServicePort 80 nginx:80
