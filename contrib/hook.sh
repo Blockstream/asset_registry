@@ -3,13 +3,13 @@ set -Eeuxo pipefail
 
 : ${GIT_OPTIONS:=""}
 : ${GIT_COMMIT_OPTIONS:=--gpg-sign}
+: ${WWW_PATH:=../www}
 
-www_dir=./public
-archive_path=$www_dir/index.tar.xz
+archive_path=$WWW_PATH/index.tar.xz
 full_index_path=./index.json
 minimal_index_path=./index.minimal.json
 
-mkdir -p $www_dir
+mkdir -p $WWW_PATH
 
 main() {
   asset_id=$1
@@ -40,15 +40,15 @@ main() {
     git push
   fi
 
-  # Make asset available in the public www dir only *after* this was successfully synced with git
+  # Update the asset in the public www dir only *after* it was successfully synced with git
   if [ $update_type = "add" ]; then
-    ln -s `realpath $asset_path` $www_dir/$asset_id.json
+    ln -fs `realpath $asset_path` $WWW_PATH/$asset_id.json
   elif [ $update_type = "delete" ]; then
-    rm $www_dir/$asset_id.json
+    rm $WWW_PATH/$asset_id.json
   fi
 
   # Overwrite public json index maps with the updated ones
-  cp $full_index_path $minimal_index_path $www_dir/
+  cp $full_index_path $minimal_index_path $WWW_PATH/
 
   # Update tar.xz archive
   tar cJf $archive_path _map ??/*.json
@@ -92,26 +92,11 @@ remove_json_key() {
   mv $1.new $1
 }
 
-# Pull remote git updates, only accepting fast-forwards signed by the gpg
-# key specified in ./signing-key.asc
+# Pull remote git updates, only accepting signed fast-forwards.
+# Any key in the local GPG keyring will be accepted as the signing key
+# (in the typical Docker-based setup there will be only one).
 git_update() {
-  GPG_ARGS="--no-default-keyring --keyring ./gitkey.gpg --trustdb-name ./gittrustdb.gpg"
-
-  # Create the local keyring file with just the assets db signing key
-  if [ ! -f gitkey.gpg ]; then
-    gpg2 $GPG_ARGS --import signing-key.asc
-    added_keyid=`gpg2 $GPG_ARGS --list-keys --with-colons | awk -F: '/^pub:/ { print $5  }'`
-    # mark as trusted (https://raymii.org/s/articles/GPG_noninteractive_batch_sign_trust_and_send_gnupg_keys.html)
-    echo -e "5\ny\n" | gpg2 $GPG_ARGS --command-fd 0 --edit-key $added_keyid trust
-  fi
-
-  # Setup a "gitpgp" command to only accept keys from the local keyring file
-  if [ ! -f gitgpg ]; then
-    echo -e '#!/bin/sh\nexec gpg2 '"$GPG_ARGS"' "$@"' > gitgpg
-    chmod +x gitgpg
-  fi
-
-  git -c gpg.program=./gitgpg pull --verify-signatures --ff-only
+  git pull --verify-signatures --ff-only
 }
 
 init_commit=`git rev-parse HEAD`
