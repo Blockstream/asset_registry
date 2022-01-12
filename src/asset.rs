@@ -20,7 +20,7 @@ use crate::util::{
 lazy_static! {
     static ref EC: Secp256k1<secp256k1::VerifyOnly> = Secp256k1::verification_only();
     static ref RE_NAME: Regex = Regex::new(r"^[[:ascii:]]{1,255}$").unwrap();
-    static ref RE_TICKER: Regex = Regex::new(r"^[a-zA-Z0-9.\-]{3,5}$").unwrap();
+    static ref RE_TICKER: Regex = Regex::new(r"^[a-zA-Z0-9.\-]{3,24}$").unwrap();
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
