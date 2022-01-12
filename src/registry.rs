@@ -1,5 +1,5 @@
-use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::{fs, path, process::Command};
 
 use bitcoin_hashes::hex::ToHex;
@@ -132,7 +132,7 @@ struct AssetFileHandle<'a> {
     // directory and full path to main asset json file
     path: path::PathBuf,
     // path for unique namespace identifier file
-    ns_path: path::PathBuf,
+    ns_path: Option<path::PathBuf>,
 }
 
 impl<'a> AssetFileHandle<'a> {
@@ -143,8 +143,8 @@ impl<'a> AssetFileHandle<'a> {
 
         // XXX use sub-dirs inside map too, use the hash of the unique_key as filename?
         let ns_dir = base_dir.join("_map");
-        let unique_filename = make_unique_key(&asset.fields.entity, asset.fields.ticker.as_ref());
-        let ns_path = ns_dir.join(unique_filename);
+        let ns_path = make_unique_ns_filename(&asset.fields.entity, asset.fields.ticker.as_ref())
+            .map(|filename| ns_dir.join(filename));
 
         AssetFileHandle {
             asset,
@@ -158,7 +158,7 @@ impl<'a> AssetFileHandle<'a> {
     }
 
     fn ns_exists(&self) -> bool {
-        self.ns_path.exists()
+        self.ns_path.as_ref().map_or(false, |path| path.exists())
     }
 
     fn abs_path(&self) -> Result<path::PathBuf> {
@@ -167,20 +167,24 @@ impl<'a> AssetFileHandle<'a> {
 
     fn write(&self) -> Result<()> {
         let dir = self.path.parent().unwrap();
-        let ns_dir = self.ns_path.parent().unwrap();
+        let ns_dir = self.ns_path.as_ref().map(|path| path.parent().unwrap());
 
         if !dir.exists() {
             fs::create_dir(&dir)?;
         }
-        if !ns_dir.exists() {
-            fs::create_dir(&ns_dir)?;
+        if let Some(ns_dir) = ns_dir {
+            if !ns_dir.exists() {
+                fs::create_dir(&ns_dir)?;
+            }
         }
 
         fs::write(&self.path, serde_json::to_string(&self.asset)?)
             .context("failed writing asset to fs")?;
 
-        fs::write(&self.ns_path, self.asset.asset_id.to_hex())
-            .context("failed writing asset map to fs")?;
+        if let Some(ns_path) = &self.ns_path {
+            fs::write(ns_path, self.asset.asset_id.to_hex())
+                .context("failed writing asset map to fs")?;
+        }
 
         Ok(())
     }
@@ -190,15 +194,12 @@ impl<'a> AssetFileHandle<'a> {
             fs::remove_file(&self.path)?;
         }
         if self.ns_exists() {
-            fs::remove_file(&self.ns_path)?;
+            fs::remove_file(self.ns_path.as_ref().unwrap())?;
         }
         Ok(())
     }
 }
 
-fn make_unique_key(entity: &AssetEntity, ticker: Option<&String>) -> String {
-    ticker.map_or_else(
-        || format!("{}", entity),
-        |ticker| format!("{}@{}", ticker, entity),
-    )
+fn make_unique_ns_filename(entity: &AssetEntity, ticker: Option<&String>) -> Option<String> {
+    ticker.map(|ticker| format!("{}@{}", ticker, entity))
 }
