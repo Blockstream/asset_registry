@@ -302,12 +302,12 @@ mod tests {
 
     #[test]
     fn test1_asset_load() -> Result<()> {
-        let asset = Asset::load(PathBuf::from("test/asset-signed.json")).unwrap();
+        let asset = Asset::load(PathBuf::from("test/asset-b1405e.json")).unwrap();
         assert_eq!(
             asset.asset_id.to_hex(),
-            "9a51761132b7399d34819c2c5d03af71794ff3aa0f78a434ddf20605545c86f2"
+            "b1405e4eefa91c6690198b4f85d73e8e0babee08f73b2c8af411486dc28dbc05"
         );
-        assert_eq!(asset.fields.ticker, Some("FOO".to_string()));
+        assert_eq!(asset.fields.ticker, Some("PPP".to_string()));
         Ok(())
     }
 

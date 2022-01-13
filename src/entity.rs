@@ -125,7 +125,7 @@ pub mod tests {
 
     #[test]
     fn test1_verify_domain_link() {
-        let asset = Asset::load(PathBuf::from("test/asset-signed.json")).unwrap();
+        let asset = Asset::load(PathBuf::from("test/asset-b1405e.json")).unwrap();
         // expects https://test.dev/ to forward requests to a local web server
         verify_domain_link(&asset, "test.dev").expect("failed verifying domain name");
     }

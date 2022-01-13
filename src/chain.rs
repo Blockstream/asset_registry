@@ -138,7 +138,7 @@ pub mod tests {
     use super::*;
     use rocket as r;
     use rocket_contrib::json::JsonValue;
-    use std::fs;
+    use std::{fs, str::FromStr};
     use std::path::PathBuf;
     use std::sync::Once;
 
@@ -160,9 +160,17 @@ pub mod tests {
         })
     }
 
-    #[get("/tx/<_txid>/hex")]
-    fn tx_hex_handler(_txid: String) -> Result<String> {
-        Ok(fs::read_to_string("test/committed-issuance-tx.hex")?)
+    #[get("/tx/<txid>/hex")]
+    fn tx_hex_handler(txid: String) -> Result<String> {
+        let path = format!("test/issuance-tx-{}.hex", &txid[..6]);
+        Ok(fs::read_to_string(path)?)
+    }
+
+    #[get("/asset/<asset_id>")]
+    fn asset_handler(asset_id: String) -> Result<JsonValue> {
+        let path = format!("test/asset-{}.json", &asset_id[..6]);
+        let jsonstr = fs::read_to_string(path)?;
+        Ok(JsonValue::from(serde_json::Value::from_str(&jsonstr)?))
     }
 
     #[get("/tx/<_txid>/status")]
@@ -175,21 +183,6 @@ pub mod tests {
         }))
     }
 
-    #[get("/asset/<_asset_id>")]
-    fn asset_handler(_asset_id: String) -> JsonValue {
-        JsonValue::from(json!({
-            // some fields unnecessary for testing ommitted
-             "issuance_txin": {
-                 "txid": "9b75a545ff42c403839b0be69c1047144dc3e778c0d937d85c71538f169eebb5",
-                 "vin": 0
-             },
-             "issuance_prevout": {
-                 "txid": "c1854811ffe022a023e42769a703d434a40cb3dc16407e1a47aa6279d6cd48b4",
-                 "vout": 2
-             },
-        }))
-    }
-
     #[test]
     fn test0_init() {
         stderrlog::new().verbosity(3).init().ok();
@@ -199,7 +192,7 @@ pub mod tests {
 
     #[test]
     fn test1_verify() -> Result<()> {
-        let asset = Asset::load(PathBuf::from("test/asset-committed.json"))?;
+        let asset = Asset::load(PathBuf::from("test/asset-b1405e.json"))?;
         let chain = ChainQuery::new("http://localhost:58713".to_string());
 
         verify_asset_issuance_tx(&chain, &asset)?;

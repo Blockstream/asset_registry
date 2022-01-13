@@ -297,7 +297,7 @@ mod tests {
 
         let asset = CLIENT.register(&asset_req)?;
         assert_eq!(asset.name(), "PPP coin");
-        info!("asset created succesfully");
+        info!("asset created successfully");
 
         // Delete
         let msg_to_sign = format!("remove {} from registry", asset.asset_id);
@@ -368,6 +368,53 @@ mod tests {
             "b1405e4eefa91c6690198b4f85d73e8e0babee08f73b2c8af411486dc28dbc05",
         );
         assert_eq!(asset.name(), "PPP coin");
+        Ok(())
+    }
+
+    #[test]
+    fn test5_multiple_tickerless() -> Result<()> {
+        let asset1 = CLIENT.register(&serde_json::from_value(json!({
+            "asset_id":"cdcc515938c9b38d4312fcdb6001fc434596f1edb1fe09e51d319bd487dcaab8",
+            "contract":{
+                "entity":{"domain":"test.dev"},
+                "issuer_pubkey": "03ed9530a9ae5aacdc377e3c9cfbf03a4b21c6af5fa45e2df73a52edb8ee2fe70f",
+                "name":"Foo 1",
+                "version":0
+            },
+        }))?)?;
+        let asset2 = CLIENT.register(&serde_json::from_value(json!({
+            "asset_id":"455a7a5cf7a179dd5325968eb0319c1d182177930f8a70bfe61822d772b3783e",
+            "contract":{
+                "entity":{"domain":"test.dev"},
+                "issuer_pubkey": "03ed9530a9ae5aacdc377e3c9cfbf03a4b21c6af5fa45e2df73a52edb8ee2fe70f",
+                "name":"Foo 2",
+                "version":0
+            },
+        }))?)?;
+
+        assert_eq!(asset1.fields.name, "Foo 1");
+        assert_eq!(asset2.fields.name, "Foo 2");
+        assert_eq!(asset1.fields.ticker, None);
+        assert_eq!(asset2.fields.ticker, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test6_collection() -> Result<()> {
+        let asset = CLIENT.register(&serde_json::from_value(json!({
+            "asset_id":"38dac0ec084ebc86cae69bd50ad1c46f1b9b6791dc77762e63baeb0548b0df69",
+            "contract":{
+                "entity":{"domain":"test.dev"},
+                "issuer_pubkey": "03ed9530a9ae5aacdc377e3c9cfbf03a4b21c6af5fa45e2df73a52edb8ee2fe70f",
+                "name":"Qux",
+                "collection":"TAZ/ZAT",
+                "version":0
+            },
+        }))?)?;
+
+        assert_eq!(asset.fields.collection, Some("TAZ/ZAT".to_string()));
+
         Ok(())
     }
 

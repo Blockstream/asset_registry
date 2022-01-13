@@ -1,0 +1,10 @@
+{
+    "issuance_txin": {
+        "txid": "669d13368ed318eec89033c64ec73354b436a9b8ecbf5f07e3dc01780a482223",
+        "vin": 0
+    },
+    "issuance_prevout": {
+        "txid": "027f015923d266ffb8af1fadd09a3743dffebd199e8f1e45c96ca12e58992d5f",
+        "vout": 0
+    }
+}
