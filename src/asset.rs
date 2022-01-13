@@ -21,6 +21,7 @@ lazy_static! {
     static ref EC: Secp256k1<secp256k1::VerifyOnly> = Secp256k1::verification_only();
     static ref RE_NAME: Regex = Regex::new(r"^[[:ascii:]]{1,255}$").unwrap();
     static ref RE_TICKER: Regex = Regex::new(r"^[a-zA-Z0-9.\-]{3,24}$").unwrap();
+    static ref RE_COLLECTION: Regex = Regex::new(r"^[[:ascii:]]{1,255}$").unwrap();
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -50,6 +51,8 @@ pub struct AssetFields {
 
     pub ticker: Option<String>,
 
+    pub collection: Option<String>,
+
     #[serde(default = "default_precision")]
     pub precision: u8,
 
@@ -69,6 +72,10 @@ impl AssetFields {
 
         if let Some(ticker) = &self.ticker {
             ensure!(RE_TICKER.is_match(ticker), "invalid `ticker`");
+        }
+
+        if let Some(collection) = &self.collection {
+            ensure!(RE_COLLECTION.is_match(collection), "invalid `collection`");
         }
 
         verify_pubkey(&self.issuer_pubkey).context("invalid `issuer_pubkey`")?;
