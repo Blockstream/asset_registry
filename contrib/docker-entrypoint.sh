@@ -20,7 +20,7 @@ git config --global user.name "registry"
 ssh-keygen -F github.com || ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 # Clone remote DB repo and verify its properly signed
-[ -d $DB_PATH/.git ] || git clone $DB_GIT_REMOTE $DB_PATH
+[ -d $DB_PATH/.git ] || git clone $DB_GIT_REMOTE $DB_PATH --depth 5
 (cd $DB_PATH && git verify-commit HEAD || { rm -r $DB_PATH/{.,}*; exit 1; })
 
 # Initialize the public www directory
