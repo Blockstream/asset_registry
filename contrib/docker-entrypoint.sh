@@ -32,6 +32,26 @@ if [ ! -f $WWW_PATH/index.tar.xz ]; then
     ln -fs $file $WWW_PATH/
   done
 
+  # Group assets by first two chars of asset_id
+  #  and create an index.json in a subdir to be served by nginx; loop should be idempotent
+  for dir in $DB_PATH/??/; do
+    subpath=$(echo $dir | cut -d/ -f4)
+    www_subpath=$WWW_PATH/$subpath
+    www_subpath_index=$www_subpath/index.json
+
+    # if subpath/index.json doesn't exist yet or its empty,
+    #  create it along with the prefix subdir (should happen only once)
+    [ -s $www_subpath_index ] || { mkdir -p $www_subpath; echo -e "{\n}" > $www_subpath_index; }
+
+    # create subpath/index.json
+    for file in $dir*.json; do
+      asset_id=$(basename $file .json)
+      json_full="$(cat $file)"
+      jq -c ".["\""$asset_id"\""]=$json_full" $www_subpath_index > $www_subpath_index.new
+      mv $www_subpath_index.new $www_subpath_index
+    done
+  done
+
   # Symlink icons map
   ln -fs $DB_PATH/icons.json $WWW_PATH/
 

@@ -43,8 +43,10 @@ main() {
   # Update the asset in the public www dir only *after* it was successfully synced with git
   if [ $update_type = "add" ]; then
     ln -fs `realpath $asset_path` $WWW_PATH/$asset_id.json
+    sub_index_add_asset $asset_id $asset_path
   elif [ $update_type = "delete" ]; then
     rm $WWW_PATH/$asset_id.json
+    sub_index_delete_asset $asset_id $asset_path
   fi
 
   # Overwrite public json index maps with the updated ones
@@ -67,12 +69,34 @@ index_add_asset() {
   append_json_key $minimal_index_path $asset_id "$json_minimal"
 }
 
+# adds asset to $WWW_PATH/??/index.json
+sub_index_add_asset() {
+  asset_id=$1
+  asset_path=$2
+  subpath=$(echo $asset_path | cut -d/ -f4)
+  www_subpath_index=$WWW_PATH/$subpath/index.json
+
+  json_full="$(cat $asset_path)"
+
+  append_json_key $www_subpath_index $asset_id "$json_full"
+}
+
 index_delete_asset() {
   asset_id=$1
   asset_path=$2
 
   remove_json_key $full_index_path $asset_id
   remove_json_key $minimal_index_path $asset_id
+}
+
+# removes asset from $WWW_PATH/??/index.json
+sub_index_delete_asset() {
+  asset_id=$1
+  asset_path=$2
+  subpath=$(echo $asset_path | cut -d/ -f4)
+  www_subpath_index=$WWW_PATH/$subpath/index.json
+
+  remove_json_key $www_subpath_index $asset_id
 }
 
 append_json_key() {
