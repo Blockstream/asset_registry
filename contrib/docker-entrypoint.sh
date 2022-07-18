@@ -20,7 +20,7 @@ git config --global user.name "registry"
 ssh-keygen -F github.com || ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 # Clone remote DB repo and verify its properly signed
-[ -d $DB_PATH/.git ] || git clone $DB_GIT_REMOTE $DB_PATH
+[ -d $DB_PATH/.git ] || git clone $DB_GIT_REMOTE $DB_PATH --depth 5
 (cd $DB_PATH && git verify-commit HEAD || { rm -r $DB_PATH/{.,}*; exit 1; })
 
 # Initialize the public www directory
@@ -30,6 +30,26 @@ if [ ! -f $WWW_PATH/index.tar.xz ]; then
   # Symlink all asset JSON files into the public www dir
   for file in $DB_PATH/??/*.json; do
     ln -fs $file $WWW_PATH/
+  done
+
+  # Group assets by first two chars of asset_id
+  #  and create an index.json in a subdir to be served by nginx; loop should be idempotent
+  for dir in $DB_PATH/??/; do
+    subpath=$(echo $dir | cut -d/ -f4)
+    www_subpath=$WWW_PATH/$subpath
+    www_subpath_index=$www_subpath/index.json
+
+    # if subpath/index.json doesn't exist yet or its empty,
+    #  create it along with the prefix subdir (should happen only once)
+    [ -s $www_subpath_index ] || { mkdir -p $www_subpath; echo -e "{\n}" > $www_subpath_index; }
+
+    # create subpath/index.json
+    for file in $dir*.json; do
+      asset_id=$(basename $file .json)
+      json_full="$(cat $file)"
+      jq -c ".["\""$asset_id"\""]=$json_full" $www_subpath_index > $www_subpath_index.new
+      mv $www_subpath_index.new $www_subpath_index
+    done
   done
 
   # Symlink icons map
