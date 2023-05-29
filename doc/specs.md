@@ -1,3 +1,7 @@
+# Asset Metadata Registry
+
+To associate an issued asset with its metadata on the Liquid asset registry, the asset contract JSON must be created in advance and have its hash committed to in the asset issuance transaction. The format for the contract and the issuance process are described below.
+
 ## Contract JSON fields
 
 Required fields:
@@ -9,9 +13,10 @@ Required fields:
 
 Optional fields:
 
-- `ticker`: 3-5 characters consisting of `a-z`, `A-Z`, `.` and `-`.
+- `ticker`: 3-24 characters consisting of `a-z`, `A-Z`, `.` and `-`.
   If provided, has to be unique within the `entity` (domain name) namespace.
 - `precision`: number of digits after the decimal point, i.e. 0 for non-divisible assets or 8 for BTC-like. defaults to 0.
+- `collection`: 1-255 ASCII characters
 
 Example:
 
@@ -22,13 +27,13 @@ Example:
   "name": "Foo Coin",
   "ticker": "FOO",
   "entity": { "domain": "foo-coin.com" },
-  "precision":8
+  "precision": 8
 }
 ```
 
 ## Contract hash
 
-The contract hash is the (single) sha256 hash of the contract json document, *canonicalized to have its keys sorted lexographically*.
+The contract hash is the (single) sha256 hash of the contract json document, *canonicalized to have its keys sorted lexicographically*.
 
 The canonicalization can be done with Perl like so: `$ perl -e 'use JSON::PP; my $js = JSON::PP->new; $js->canonical(1); print $js->encode($js->decode($ARGV[0]))' '{"version":0,"name":"FOO",...}'`
 
@@ -37,14 +42,15 @@ Or with Python like so: `$ python -c 'import json,sys; sys.stdout.write(json.dum
 Or with JavaScript using the [json-stable-stringify](https://www.npmjs.com/package/json-stable-stringify) library.
 
 The resulting sha256 hash needs to be reversed to match the format expected by elementsd, similarly to the reverse encoding of txids and blockhashes as originally implemented for bitcoin by satoshi.
-This can be done in a unix envirnoment like so: `echo <hash> | fold -w2 | tac | tr -d "\n"`.
+This can be done in a unix environment like so: `echo "<contract hash> | fold -w2 | tac | tr -d "\n"`.
 
 All together:
 
 ```
 $ CONTRACT='{"version":0,"ticker":"FOO","name":"Foo Coin"}'
-$ CONTRACT_HASH=$(python -c 'import json,sys; sys.stdout.write(json.dumps(json.loads(sys.argv[1]), sort_keys=True, separators=(",",":")))' "$CONTRACT" | sha256sum | head -c64 | fold -w2 | tac | tr -d "\n")
-$ echo $CONTRACT_HASH
+$ CONTRACT_HASH=$(python -c 'import json,sys; sys.stdout.write(json.dumps(json.loads(sys.argv[1]), sort_keys=True, separators=(",",":")))' "$CONTRACT" | sha256sum | head -c64)
+$ CONTRACT_HASH_REV=$(echo $CONTRACT_HASH | fold -w2 | tac | tr -d "\n")
+$ echo $CONTRACT_HASH_REV
 ```
 
 This can also be done using the asset registry CLI utility: `$ liquid-asset-registry contract-json --hash '<contract-json>'`
@@ -68,9 +74,11 @@ $ curl https://assets.blockstream.info/contract/validate -H 'Content-Type: appli
        -d '{"contract": <your-contract-json>, "contract_hash": "<your-contract-hash>"}'
 ```
 
-If everything seems good, issue the asset using elementsd's `rawissueasset` with your hash as the `contract_hash` parameter and take note of the resulting `asset_id`. Add the domain ownership proof (as described above) and, once the issuance transaction confirms, submit the asset to the registry:
+If everything seems good, issue the asset using elementsd's `issueasset` with your hash as the `contract_hash` parameter and take note of the resulting `asset_id`. Add the domain ownership proof (as described above) and, once the issuance transaction confirms, submit the asset to the registry:
 
 ```bash
+$ elements-cli issueasset 10 0 true $CONTRACT_HASH_REV
+
 $ curl https://assets.blockstream.info/ -H 'Content-Type: application/json' \
        -d '{"asset_id": "<asset-id>", "contract": <contract-json>}'
 ```
