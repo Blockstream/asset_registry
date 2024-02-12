@@ -3,6 +3,8 @@ use std::fmt;
 use bitcoin_hashes::hex::ToHex;
 use failure::ResultExt;
 use reqwest::blocking::get as reqwest_get;
+use std::str;
+use trust_dns_resolver::Resolver;
 
 use crate::asset::Asset;
 use crate::errors::Result;
@@ -28,6 +30,25 @@ pub fn verify_asset_link(asset: &Asset) -> Result<()> {
     }
 }
 
+fn verify_proof_subdomain(subdomain: &str, expected_body: &str) -> Result<()> {
+    let resolver = Resolver::default()?;
+    let txt_records = resolver.txt_lookup(subdomain)?;
+
+    let first_record = match txt_records.iter().next() {
+        Some(r) => r,
+        None => bail!("Unable to retrieve the first TXT record")
+    };
+
+    let raw_txt_data = first_record.txt_data();
+    let parsed_body = str::from_utf8(&raw_txt_data[0])?;
+
+    if parsed_body != expected_body {
+       bail!("The response does not match the expected body");
+    }
+
+    Ok(())
+}
+
 fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
     verify_domain_name(domain).context("invalid domain name")?;
 
@@ -39,6 +60,21 @@ fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
         "Authorize linking the domain name {} to the Liquid asset {}",
         domain, asset_id
     );
+
+    let subdomain_for_dns_proof = format!("{}.{}", &asset_id[..6], domain);
+
+    debug!(
+        "verifying domain name {} using dns for {}: GET {}",
+        domain, asset_id, subdomain_for_dns_proof
+    );
+
+    if verify_proof_subdomain(&subdomain_for_dns_proof, &expected_body).is_ok() {
+        debug!(
+            "successfully verified domain name {} for {}: GET {}",
+            domain, asset_id, subdomain_for_dns_proof
+        );
+        return Ok(());
+    }
 
     let page_url = if cfg!(any(test, feature = "dev")) {
         // use a hard-coded verification page in testing and development modes
