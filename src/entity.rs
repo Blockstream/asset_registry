@@ -3,8 +3,10 @@ use std::fmt;
 use bitcoin_hashes::hex::ToHex;
 use failure::ResultExt;
 use reqwest::blocking::get as reqwest_get;
+use std::str;
+use trust_dns_resolver::Resolver;
 
-use crate::asset::Asset;
+use crate::asset::{Asset, DomainVerificationMethod};
 use crate::errors::Result;
 use crate::util::verify_domain_name;
 
@@ -24,13 +26,20 @@ impl fmt::Display for AssetEntity {
 
 pub fn verify_asset_link(asset: &Asset) -> Result<()> {
     match asset.entity() {
-        AssetEntity::DomainName(domain) => verify_domain_link(asset, domain),
+        AssetEntity::DomainName(domain) => {
+            verify_domain_name(domain).context("invalid domain name")?;
+            match asset.domain_verification_method.clone().unwrap_or(DomainVerificationMethod::Http) {
+                DomainVerificationMethod::Http => verify_domain_link_http(asset, domain),
+                DomainVerificationMethod::Dns => verify_domain_link_dns(asset, domain)
+            }
+            
+        }
     }
 }
 
-fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
-    verify_domain_name(domain).context("invalid domain name")?;
 
+
+fn verify_domain_link_http(asset: &Asset, domain: &str) -> Result<()> {
     // TODO tor proxy for accessing onion
 
     let asset_id = asset.id().to_hex();
@@ -81,6 +90,42 @@ fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
     Ok(())
 }
 
+fn verify_domain_link_dns(asset: &Asset, domain: &str) -> Result<()> {
+    let asset_id = asset.id().to_hex();
+
+    let expected_body = format!(
+        "liquid-asset-verification={},{}",
+        asset_id, asset.fields.ticker.clone().unwrap_or(String::from(""))
+    );
+
+    debug!(
+        "verifying domain name {} using dns for {}: GET {}",
+        domain, asset_id, domain
+    );
+
+    let resolver = Resolver::default()?;
+    let txt_records = resolver.txt_lookup(domain)?;
+
+    match txt_records.iter().any(|record| {
+        let raw_txt_data = record.txt_data();
+        match str::from_utf8(&raw_txt_data[0]) {
+            Ok(parsed_body) => parsed_body.trim_end() == expected_body,
+            Err(_) => false
+        }
+    }) {
+        true => {
+            debug!(
+                "successfully verified domain name {} for {}: GET {}",
+                domain, asset_id, &domain
+            );
+
+            Ok(())
+        },
+        false => bail!("Failed to find a TXT record for asset {} at domain name {}",asset_id, &domain)
+        
+    }
+}
+
 // needs to be run with --test-threads 1
 #[cfg(test)]
 pub mod tests {
@@ -127,6 +172,6 @@ pub mod tests {
     fn test1_verify_domain_link() {
         let asset = Asset::load(PathBuf::from("test/asset-b1405e.json")).unwrap();
         // expects https://test.dev/ to forward requests to a local web server
-        verify_domain_link(&asset, "test.dev").expect("failed verifying domain name");
+        verify_domain_link_http(&asset, "test.dev").expect("failed verifying domain name");
     }
 }

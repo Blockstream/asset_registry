@@ -2,3 +2,4 @@
 **/*.rs.bkdb
 /db
 keys
+signing-privkey.asc
