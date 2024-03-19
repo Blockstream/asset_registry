@@ -5,6 +5,7 @@ use regex::Regex;
 use serde_json::Value;
 #[cfg(feature = "cli")]
 use structopt::StructOpt;
+use std::str::FromStr;
 
 use bitcoin_hashes::{hex::FromHex, hex::ToHex, sha256, Hash};
 use elements::{issuance::ContractHash, AssetId, OutPoint};
@@ -31,6 +32,8 @@ pub struct Asset {
 
     pub issuance_txin: TxInput,
     pub issuance_prevout: OutPoint,
+    
+    pub domain_verification_method: Option<DomainVerificationMethod>,
 
     #[serde(flatten)]
     pub fields: AssetFields,
@@ -57,6 +60,24 @@ pub struct AssetFields {
     pub precision: u8,
 
     pub entity: AssetEntity,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum DomainVerificationMethod {
+    Dns,
+    Http
+}
+
+impl FromStr for DomainVerificationMethod {
+    type Err = &'static str;
+
+    fn from_str(input: &str) -> std::result::Result<DomainVerificationMethod, Self::Err> {
+        match &(input.to_ascii_lowercase()[..]) {
+            "dns"  => Ok(DomainVerificationMethod::Dns),
+            "http"  => Ok(DomainVerificationMethod::Http),
+            _      => Err("")
+        }
+    }
 }
 
 impl AssetFields {
@@ -123,6 +144,8 @@ impl Asset {
 
         verify_asset_link(self).context("failed verifying linked entity")?;
 
+        debug!("Finished verification");
+
         Ok(())
     }
 
@@ -157,6 +180,7 @@ impl Asset {
             issuance_txin,
             issuance_prevout,
             signature: None,
+            domain_verification_method: req.domain_verification_method
         })
     }
 
@@ -205,6 +229,16 @@ pub struct AssetRequest {
         )
     )]
     pub contract: Value,
+
+    #[cfg_attr(
+        feature = "cli",
+        structopt(
+            long = "domain-verification-method",
+            help = "Desired domain verification method",
+            parse(try_from_str = DomainVerificationMethod::from_str),
+        )
+    )]
+    pub domain_verification_method: Option<DomainVerificationMethod>,
 }
 
 // Verify the asset id commits to the provided contract and prevout
@@ -292,7 +326,6 @@ fn format_deletion_sig_msg(asset: &Asset) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bitcoin_hashes::hex::ToHex;
     use std::path::PathBuf;
 
     #[test]
