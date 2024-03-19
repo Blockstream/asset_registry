@@ -239,7 +239,7 @@ struct ValidationRequest {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{asset::Asset, chain, client::Client, entity, errors::OptionExt};
+    use crate::{chain, client::Client, entity, errors::OptionExt};
     use bitcoin::util::misc::signed_msg_hash;
     use bitcoin::PrivateKey;
     use bitcoin_hashes::{hex::ToHex, Hash};
