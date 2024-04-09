@@ -1,5 +1,3 @@
-#![cfg_attr(test, feature(proc_macro_hygiene, decl_macro))]
-
 extern crate base64;
 extern crate bitcoin;
 extern crate elements;
@@ -21,12 +19,6 @@ extern crate regex;
 extern crate hyper;
 #[cfg(feature = "cli")]
 extern crate structopt;
-
-#[cfg(test)]
-#[macro_use]
-extern crate rocket;
-#[cfg(test)]
-extern crate rocket_contrib;
 
 pub mod asset;
 pub mod chain;

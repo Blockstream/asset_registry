@@ -86,27 +86,26 @@ fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
 pub mod tests {
     use super::*;
     use crate::util::BoolOpt;
-    use rocket as r;
     use std::path::PathBuf;
     use std::sync::Once;
 
     static SPAWN_ONCE: Once = Once::new();
 
     // a server that identifies as "test.dev" and verifies any requested asset id
+    #[rocket::main]
+    async fn launch_mock_verifier_server() {
+        let config = rocket::Config::figment().merge(("port", 58712));
+        let rocket = rocket::custom(config).mount("/", rocket::routes![verify_handler]);
+        rocket.launch().await.unwrap();
+    }
     pub fn spawn_mock_verifier_server() {
         SPAWN_ONCE.call_once(|| {
-            let config = r::config::Config::build(r::config::Environment::Development)
-                .port(58712)
-                .finalize()
-                .unwrap();
-            let rocket = r::custom(config).mount("/", routes![verify_handler]);
-
-            std::thread::spawn(|| rocket.launch());
-        })
+            std::thread::spawn(launch_mock_verifier_server);
+        });
     }
 
-    #[get("/.well-known/<page>")]
-    fn verify_handler(page: String) -> Option<String> {
+    #[rocket::get("/.well-known/<page>")]
+    fn verify_handler(page: &str) -> Option<String> {
         page.starts_with("liquid-asset-proof-")
             .as_option()
             .map(|_| {

@@ -136,46 +136,46 @@ pub fn verify_asset_issuance_tx(chain: &ChainQuery, asset: &Asset) -> Result<Blo
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use rocket as r;
-    use rocket_contrib::json::JsonValue;
-    use std::{fs, str::FromStr};
+    use rocket::serde::json::Json;
+    use serde_json::Value;
     use std::path::PathBuf;
     use std::sync::Once;
+    use std::{fs, str::FromStr};
 
     static SPAWN_ONCE: Once = Once::new();
 
     // a server that identifies as "test.dev" and verifies any requested asset id
+    #[rocket::main]
+    async fn launch_mock_esplora_server() {
+        let config = rocket::Config::figment().merge(("port", 58713));
+        let rocket = rocket::custom(config).mount(
+            "/",
+            rocket::routes![tx_hex_handler, tx_status_handler, asset_handler],
+        );
+        rocket.launch().await.unwrap();
+    }
     pub fn spawn_mock_esplora_server() {
         SPAWN_ONCE.call_once(|| {
-            let config = r::config::Config::build(r::config::Environment::Development)
-                .port(58713)
-                .finalize()
-                .unwrap();
-            let rocket = r::custom(config).mount(
-                "/",
-                routes![tx_hex_handler, tx_status_handler, asset_handler],
-            );
-
-            std::thread::spawn(|| rocket.launch());
-        })
+            std::thread::spawn(launch_mock_esplora_server);
+        });
     }
 
-    #[get("/tx/<txid>/hex")]
-    fn tx_hex_handler(txid: String) -> Result<String> {
+    #[rocket::get("/tx/<txid>/hex")]
+    fn tx_hex_handler(txid: &str) -> String {
         let path = format!("test/issuance-tx-{}.hex", &txid[..6]);
-        Ok(fs::read_to_string(path)?)
+        fs::read_to_string(path).unwrap()
     }
 
-    #[get("/asset/<asset_id>")]
-    fn asset_handler(asset_id: String) -> Result<JsonValue> {
+    #[rocket::get("/asset/<asset_id>")]
+    fn asset_handler(asset_id: &str) -> Json<Value> {
         let path = format!("test/asset-{}.json", &asset_id[..6]);
-        let jsonstr = fs::read_to_string(path)?;
-        Ok(JsonValue::from(serde_json::Value::from_str(&jsonstr)?))
+        let jsonstr = fs::read_to_string(path).unwrap();
+        Json(serde_json::Value::from_str(&jsonstr).unwrap())
     }
 
-    #[get("/tx/<_txid>/status")]
-    fn tx_status_handler(_txid: String) -> JsonValue {
-        JsonValue::from(json!({
+    #[rocket::get("/tx/<_txid>/status")]
+    fn tx_status_handler(_txid: &str) -> Json<Value> {
+        Json(json!({
             "confirmed": true,
             "block_height": 999,
             "block_hash": "6ef1b8ac6cfacae9493e8d214d5ddd70322abe39bc0ab82727849b47bfb1fce6",
@@ -186,7 +186,6 @@ pub mod tests {
     #[test]
     fn test0_init() {
         stderrlog::new().verbosity(3).init().ok();
-
         spawn_mock_esplora_server();
     }
 

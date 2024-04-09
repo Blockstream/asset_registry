@@ -274,7 +274,6 @@ mod tests {
 
         entity::tests::spawn_mock_verifier_server();
         chain::tests::spawn_mock_esplora_server();
-
         spawn_test_server();
 
         thread::sleep(Duration::from_millis(250));
