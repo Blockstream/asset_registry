@@ -1,3 +1,4 @@
+use base64::prelude::{Engine, BASE64_STANDARD as BASE64};
 use elements::{issuance::ContractHash, AssetId};
 use reqwest::{blocking::Client as ReqClient, StatusCode, Url};
 use serde_json::Value;
@@ -67,7 +68,7 @@ impl Client {
     pub fn delete(&self, asset_id: &AssetId, signature: &[u8]) -> Result<()> {
         self.rclient
             .delete(self.registry_url.join(&asset_id.to_string())?)
-            .json(&json!({ "signature": base64::encode(signature) }))
+            .json(&json!({ "signature": BASE64.encode(signature) }))
             .send()
             .context("failed sending deletion request to registry")?
             .error_for_status()

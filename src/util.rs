@@ -1,5 +1,6 @@
 use std::fmt;
 
+use base64::prelude::{Engine, BASE64_STANDARD as BASE64};
 use bitcoin::hashes::Hash;
 use bitcoin::hex::{DisplayHex, FromHex};
 use bitcoin::secp256k1::{self, ecdsa, Secp256k1};
@@ -126,8 +127,11 @@ where
     D: Deserializer<'de>,
 {
     use serde::de::Error;
-    String::deserialize(deserializer)
-        .and_then(|string| base64::decode(&string).map_err(|err| Error::custom(err.to_string())))
+    String::deserialize(deserializer).and_then(|string| {
+        BASE64
+            .decode(&string)
+            .map_err(|err| Error::custom(err.to_string()))
+    })
 }
 
 /// Deserializes a hex string to a `Vec<u8>`.
@@ -169,7 +173,7 @@ mod tests {
         let msg = "test";
         let pubkey =
             Vec::from_hex("026be637f97bc191c27522577bd6fe284b54404321652fcc4eb62aa0f4cfd6d172")?;
-        let signature = base64::decode("H7719XlaZJT6H4HrD9KXga7yfd0MR8lSKc34TN/u0nhpecU9bVfaUDcpJtOFodfxf+IyFIE5V2A9878mM5bWvbE=")?;
+        let signature = BASE64.decode("H7719XlaZJT6H4HrD9KXga7yfd0MR8lSKc34TN/u0nhpecU9bVfaUDcpJtOFodfxf+IyFIE5V2A9878mM5bWvbE=")?;
 
         verify_bitcoin_msg(&ec, &pubkey, &signature, &msg)?;
 

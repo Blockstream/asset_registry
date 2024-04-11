@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::{fs, path, process::Command};
 
+use base64::prelude::{Engine, BASE64_STANDARD as BASE64};
 use elements::AssetId;
 
 use crate::asset::Asset;
@@ -99,7 +100,7 @@ impl Registry {
 
             let mut envs = HashMap::new();
             if let Some(sig) = signature {
-                envs.insert("AUTHORIZING_SIG", base64::encode(sig));
+                envs.insert("AUTHORIZING_SIG", BASE64.encode(sig));
             }
 
             let output = Command::new(cmd)
