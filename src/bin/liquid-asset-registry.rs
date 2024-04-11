@@ -11,9 +11,9 @@ use reqwest::{blocking::Client, StatusCode};
 use serde_json::Value;
 use structopt::StructOpt;
 
-use bitcoin_hashes::hex::ToHex;
+use elements::ContractHash;
 
-use asset_registry::asset::{contract_json_hash, Asset, AssetRequest};
+use asset_registry::asset::{Asset, AssetRequest};
 use asset_registry::chain::ChainQuery;
 use asset_registry::errors::{join_err, Result, ResultExt};
 
@@ -84,10 +84,10 @@ fn main() -> Result<()> {
                 debug!("verifying asset: {:?}", asset);
 
                 match asset.verify(chain.as_ref()) {
-                    Ok(()) => println!("{},true", asset.id().to_hex()),
+                    Ok(()) => println!("{},true", asset.id()),
                     Err(err) => {
                         warn!("asset verification failed: {}", join_err(&err));
-                        println!("{},false", asset.id().to_hex());
+                        println!("{},false", asset.id());
                         failed = true;
                     }
                 }
@@ -121,8 +121,8 @@ fn main() -> Result<()> {
             let contract: Value = serde_json::from_str(&json).context("invalid contract json")?;
 
             if hash {
-                let hash = contract_json_hash(&contract)?;
-                println!("{}", hash.to_hex());
+                let hash = ContractHash::from_json_contract(&contract.to_string())?;
+                println!("{}", hash);
             } else {
                 // deserializing and re-serializing gets us canonical encoding, with json keys sorted lexicographically
                 let contract_str = serde_json::to_string(&contract)?;

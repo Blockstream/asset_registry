@@ -1,6 +1,5 @@
 use std::fmt;
 
-use bitcoin_hashes::hex::ToHex;
 use failure::ResultExt;
 use reqwest::blocking::get as reqwest_get;
 
@@ -33,7 +32,7 @@ fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
 
     // TODO tor proxy for accessing onion
 
-    let asset_id = asset.id().to_hex();
+    let asset_id = asset.id();
 
     let expected_body = format!(
         "Authorize linking the domain name {} to the Liquid asset {}",

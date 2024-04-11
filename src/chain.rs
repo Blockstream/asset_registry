@@ -1,9 +1,11 @@
 use reqwest::{blocking::Client as ReqClient, StatusCode};
 use serde_json::Value;
 
-use bitcoin::{BlockHash, Txid};
-use bitcoin_hashes::{hex::ToHex, Hash};
-use elements::{encode::deserialize, issuance::ContractHash, AssetId, Transaction};
+use bitcoin::hashes::{sha256, Hash};
+use bitcoin::hex::FromHex;
+use elements::{
+    encode::deserialize, issuance::ContractHash, AssetId, BlockHash, Transaction, Txid,
+};
 
 use crate::asset::Asset;
 use crate::errors::{OptionExt, Result, ResultExt};
@@ -32,7 +34,7 @@ impl ChainQuery {
     pub fn get_tx(&self, txid: &Txid) -> Result<Option<Transaction>> {
         let resp = self
             .rclient
-            .get(&format!("{}/tx/{}/hex", self.api_url, txid.to_hex()))
+            .get(&format!("{}/tx/{}/hex", self.api_url, txid))
             .send()
             .context("failed fetching tx")?;
 
@@ -44,15 +46,16 @@ impl ChainQuery {
                 .context("failed fetching tx")?
                 .text()
                 .context("failed reading tx")?;
+            let raw = Vec::from_hex(hex.trim())?;
 
-            Some(deserialize(&hex::decode(hex.trim())?)?)
+            Some(deserialize(&raw)?)
         })
     }
 
     pub fn get_tx_status(&self, txid: &Txid) -> Result<Option<BlockId>> {
         let status: Value = self
             .rclient
-            .get(&format!("{}/tx/{}/status", self.api_url, txid.to_hex()))
+            .get(&format!("{}/tx/{}/status", self.api_url, txid))
             .send()
             .context("failed fetching tx status")?
             .error_for_status()
@@ -69,7 +72,7 @@ impl ChainQuery {
     pub fn get_asset(&self, asset_id: &AssetId) -> Result<Option<Value>> {
         let resp = self
             .rclient
-            .get(&format!("{}/asset/{}", self.api_url, asset_id.to_hex()))
+            .get(&format!("{}/asset/{}", self.api_url, asset_id))
             .send()
             .context("failed fetching tx")?;
 
@@ -108,7 +111,7 @@ pub fn verify_asset_issuance_tx(chain: &ChainQuery, asset: &Asset) -> Result<Blo
         "issuance prevout mismatch"
     );
     ensure!(
-        txin.asset_issuance.asset_entropy == asset.contract_hash()?.into_inner(),
+        txin.asset_issuance.asset_entropy == asset.contract_hash().to_byte_array(),
         "issuance entropy does not match contract hash"
     );
 
@@ -116,7 +119,9 @@ pub fn verify_asset_issuance_tx(chain: &ChainQuery, asset: &Asset) -> Result<Blo
     // sanity check
     let entropy = AssetId::generate_asset_entropy(
         txin.previous_output,
-        ContractHash::from_inner(txin.asset_issuance.asset_entropy),
+        ContractHash::from(sha256::Hash::from_byte_array(
+            txin.asset_issuance.asset_entropy,
+        )),
     );
     ensure!(
         AssetId::from_entropy(entropy) == asset.asset_id,
@@ -125,8 +130,7 @@ pub fn verify_asset_issuance_tx(chain: &ChainQuery, asset: &Asset) -> Result<Blo
 
     debug!(
         "verified on-chain issuance of asset {}, tx input {:?}",
-        asset.asset_id.to_hex(),
-        asset.issuance_txin,
+        asset.asset_id, asset.issuance_txin,
     );
 
     Ok(blockid)

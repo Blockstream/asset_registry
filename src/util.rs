@@ -1,10 +1,11 @@
 use std::fmt;
 
-use bitcoin::util::misc::signed_msg_hash;
-use bitcoin::Txid;
-use bitcoin_hashes::{hex::ToHex, Hash};
+use bitcoin::hashes::Hash;
+use bitcoin::hex::{DisplayHex, FromHex};
+use bitcoin::secp256k1::{self, ecdsa, Secp256k1};
+use bitcoin::sign_message::signed_msg_hash;
+use elements::{OutPoint, Txid};
 use regex::RegexSet;
-use secp256k1::Secp256k1;
 use serde::{Deserialize, Deserializer, Serializer};
 
 use crate::errors::{OptionExt, Result, ResultExt};
@@ -17,7 +18,7 @@ pub struct TxInput {
 
 impl fmt::Debug for TxInput {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "TxInput {}:{}", self.txid.to_hex(), self.vin)
+        write!(f, "TxInput {}:{}", self.txid, self.vin)
     }
 }
 
@@ -35,12 +36,12 @@ pub fn verify_bitcoin_msg(
     };
 
     let pubkey = secp256k1::PublicKey::from_slice(pubkey)?;
-    let signature = secp256k1::Signature::from_compact(&signature)?;
+    let signature = ecdsa::Signature::from_compact(&signature)?;
     let msg_hash = signed_msg_hash(msg);
-    let msg_secp = secp256k1::Message::from_slice(&msg_hash.into_inner())?;
+    let msg_secp = secp256k1::Message::from_digest(msg_hash.to_byte_array());
 
     Ok(ec
-        .verify(&msg_secp, &signature, &pubkey)
+        .verify_ecdsa(&msg_secp, &signature, &pubkey)
         .context("signature veritification failed")?)
 }
 
@@ -136,7 +137,7 @@ where
 {
     use serde::de::Error;
     String::deserialize(deserializer)
-        .and_then(|string| hex::decode(&string).map_err(|err| Error::custom(err.to_string())))
+        .and_then(|string| Vec::from_hex(&string).map_err(|err| Error::custom(err.to_string())))
 }
 
 /// Serializes a Vec<u8> into a hex string.
@@ -145,7 +146,7 @@ where
     T: AsRef<[u8]>,
     S: Serializer,
 {
-    serializer.serialize_str(&buffer.as_ref().to_hex())
+    serializer.serialize_str(&buffer.as_ref().to_lower_hex_string())
 }
 
 #[cfg(test)]
@@ -167,11 +168,32 @@ mod tests {
 
         let msg = "test";
         let pubkey =
-            hex::decode("026be637f97bc191c27522577bd6fe284b54404321652fcc4eb62aa0f4cfd6d172")?;
+            Vec::from_hex("026be637f97bc191c27522577bd6fe284b54404321652fcc4eb62aa0f4cfd6d172")?;
         let signature = base64::decode("H7719XlaZJT6H4HrD9KXga7yfd0MR8lSKc34TN/u0nhpecU9bVfaUDcpJtOFodfxf+IyFIE5V2A9878mM5bWvbE=")?;
 
         verify_bitcoin_msg(&ec, &pubkey, &signature, &msg)?;
 
         Ok(())
+    }
+}
+
+// A serde remote type to retain the JSON serialization format used by prior
+// releases of rust-{bitcoin,elements} - a JSON object with `txid` and `vout`
+// fields, rather than the "txid:vout" string format used by newer releases.
+// This is needed for compatibility with the asset registry JSON files.
+// See https://serde.rs/remote-derive.html
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "OutPoint")]
+pub struct OutPointSerializer {
+    pub txid: Txid,
+    pub vout: u32,
+}
+
+impl OutPointSerializer {
+    pub fn from_value(val: serde_json::Value) -> serde_json::Result<OutPoint> {
+        #[derive(Serialize, Deserialize)]
+        struct Wrapper(#[serde(with = "OutPointSerializer")] OutPoint);
+
+        Ok(serde_json::from_value::<Wrapper>(val)?.0)
     }
 }

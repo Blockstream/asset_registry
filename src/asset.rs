@@ -6,15 +6,15 @@ use serde_json::Value;
 #[cfg(feature = "cli")]
 use structopt::StructOpt;
 
-use bitcoin_hashes::{hex::FromHex, hex::ToHex, sha256, Hash};
+use bitcoin::secp256k1::{self, Secp256k1};
 use elements::{issuance::ContractHash, AssetId, OutPoint};
-use secp256k1::Secp256k1;
 
 use crate::chain::{verify_asset_issuance_tx, ChainQuery};
 use crate::entity::{verify_asset_link, AssetEntity};
 use crate::errors::{OptionExt, Result};
 use crate::util::{
-    serde_from_hex, serde_to_hex, verify_bitcoin_msg, verify_domain_name, verify_pubkey, TxInput,
+    serde_from_hex, serde_to_hex, verify_bitcoin_msg, verify_domain_name, verify_pubkey,
+    OutPointSerializer, TxInput,
 };
 
 lazy_static! {
@@ -30,6 +30,8 @@ pub struct Asset {
     pub contract: Value,
 
     pub issuance_txin: TxInput,
+
+    #[serde(with = "OutPointSerializer")]
     pub issuance_prevout: OutPoint,
 
     #[serde(flatten)]
@@ -135,8 +137,8 @@ impl Asset {
         )
     }
 
-    pub fn contract_hash(&self) -> Result<ContractHash> {
-        contract_json_hash(&self.contract)
+    pub fn contract_hash(&self) -> ContractHash {
+        ContractHash::from_json_contract(&self.contract.to_string()).expect("must be valid json")
     }
 
     pub fn from_request(req: AssetRequest, chain: &ChainQuery) -> Result<Self> {
@@ -148,7 +150,9 @@ impl Asset {
             AssetFields::from_contract(&req.contract).context("invalid contract fields")?;
 
         let issuance_txin = serde_json::from_value(asset_data["issuance_txin"].take())?;
-        let issuance_prevout = serde_json::from_value(asset_data["issuance_prevout"].take())?;
+
+        let issuance_prevout =
+            OutPointSerializer::from_value(asset_data["issuance_prevout"].take())?;
 
         Ok(Asset {
             asset_id: req.asset_id,
@@ -163,7 +167,7 @@ impl Asset {
     pub fn validate_contract(contract: &Value, contract_hash: &ContractHash) -> Result<()> {
         AssetFields::from_contract(contract)?.validate()?;
 
-        let expected_hash = contract_json_hash(contract)?;
+        let expected_hash = ContractHash::from_json_contract(&contract.to_string())?;
         ensure!(
             expected_hash == *contract_hash,
             "contract hash mismatch, expected {}",
@@ -173,27 +177,10 @@ impl Asset {
     }
 }
 
-pub fn contract_json_hash(contract: &Value) -> Result<ContractHash> {
-    // serde_json sorts keys lexicographically
-    let contract_str = serde_json::to_string(contract)?;
-
-    // use the ContractHash representation for correct (reverse) hex encoding,
-    // but use a single SHA256 instead of the double hash assumed by ContractHash::hash()
-    let hash = sha256::Hash::hash(&contract_str.as_bytes());
-    Ok(ContractHash::from_inner(hash.into_inner()))
-}
-
 #[cfg_attr(feature = "cli", derive(StructOpt))]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AssetRequest {
-    #[cfg_attr(
-        feature = "cli",
-        structopt(
-            long = "asset-id",
-            help = "The asset-id",
-            parse(try_from_str = AssetId::from_hex)
-        )
-    )]
+    #[cfg_attr(feature = "cli", structopt(long = "asset-id", help = "The asset id"))]
     pub asset_id: AssetId,
 
     #[cfg_attr(
@@ -209,7 +196,7 @@ pub struct AssetRequest {
 
 // Verify the asset id commits to the provided contract and prevout
 fn verify_asset_commitment(asset: &Asset) -> Result<()> {
-    let contract_hash = asset.contract_hash()?;
+    let contract_hash = asset.contract_hash();
     let entropy = AssetId::generate_asset_entropy(asset.issuance_prevout, contract_hash);
     let asset_id = AssetId::from_entropy(entropy);
 
@@ -217,9 +204,9 @@ fn verify_asset_commitment(asset: &Asset) -> Result<()> {
 
     debug!(
         "verified asset commitment, asset id {} commits to prevout {:?} and contract hash {} ({:?})",
-        asset_id.to_hex(),
+        asset_id,
         asset.issuance_prevout,
-        contract_hash.to_hex(),
+        contract_hash,
         asset.contract,
     );
     Ok(())
@@ -292,7 +279,6 @@ fn format_deletion_sig_msg(asset: &Asset) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bitcoin_hashes::hex::ToHex;
     use std::path::PathBuf;
 
     #[test]
@@ -304,7 +290,7 @@ mod tests {
     fn test1_asset_load() -> Result<()> {
         let asset = Asset::load(PathBuf::from("test/asset-b1405e.json")).unwrap();
         assert_eq!(
-            asset.asset_id.to_hex(),
+            asset.asset_id.to_string(),
             "b1405e4eefa91c6690198b4f85d73e8e0babee08f73b2c8af411486dc28dbc05"
         );
         assert_eq!(asset.fields.ticker, Some("PPP".to_string()));
