@@ -30,6 +30,10 @@ pub fn verify_asset_link(asset: &Asset) -> Result<()> {
 fn verify_domain_link(asset: &Asset, domain: &str) -> Result<()> {
     verify_domain_name(domain).context("invalid domain name")?;
 
+    if std::env::var_os("SKIP_VERIFY_DOMAIN_LINK").is_some() {
+        return Ok(());
+    }
+
     // TODO tor proxy for accessing onion
 
     let asset_id = asset.id();
