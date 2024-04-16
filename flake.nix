@@ -39,15 +39,25 @@
           };
           cargoArtifacts = craneLib.buildDepsOnly commonArgs;
           bin = craneLib.buildPackage (commonArgs // {
-            inherit cargoArtifacts ;
+            inherit cargoArtifacts;
             cargoExtraArgs = "--features cli,server,client,dev --bins";
           });
+
+          dockerImage = pkgs.dockerTools.streamLayeredImage {
+            name = "xenoky/liquid-asset-registry";
+            tag = "02843eb2";
+            contents = [ bin ];
+            config = {
+              Cmd = [ "${bin}/bin/server" ];
+            };
+          };
+
         in
         with pkgs;
         {
           packages =
             {
-              inherit bin;
+              inherit bin dockerImage;
               default = bin;
             };
           apps."server" = {
@@ -58,7 +68,7 @@
           devShells.default = mkShell {
             inputsFrom = [ bin ];
 
-            buildInputs = with pkgs; [  ];
+            buildInputs = with pkgs; [ ];
           };
         }
       );
