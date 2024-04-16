@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::{fs, path, process::Command};
 
-use bitcoin_hashes::hex::ToHex;
+use base64::prelude::{Engine, BASE64_STANDARD as BASE64};
 use elements::AssetId;
 
 use crate::asset::Asset;
@@ -33,7 +33,7 @@ impl Registry {
     }
 
     pub fn load(&self, asset_id: &AssetId) -> Result<Option<Asset>> {
-        let name = format!("{}.json", asset_id.to_hex());
+        let name = format!("{}.json", asset_id);
         let subdir = self.directory.join(&name[0..DIR_PARTITION_LEN]);
         let path = subdir.join(name);
 
@@ -100,12 +100,12 @@ impl Registry {
 
             let mut envs = HashMap::new();
             if let Some(sig) = signature {
-                envs.insert("AUTHORIZING_SIG", base64::encode(sig));
+                envs.insert("AUTHORIZING_SIG", BASE64.encode(sig));
             }
 
             let output = Command::new(cmd)
                 .current_dir(&self.directory)
-                .arg(asset_id.to_hex())
+                .arg(asset_id.to_string())
                 .arg(asset_path.to_str().req()?)
                 .arg(update_type)
                 .envs(envs)
@@ -137,7 +137,7 @@ struct AssetFileHandle<'a> {
 
 impl<'a> AssetFileHandle<'a> {
     fn new(asset: &'a Asset, base_dir: &path::Path) -> Self {
-        let name = format!("{}.json", asset.asset_id.to_hex());
+        let name = format!("{}.json", asset.asset_id);
         let dir = base_dir.join(&name[0..DIR_PARTITION_LEN]);
         let path = dir.join(name);
 
@@ -182,7 +182,7 @@ impl<'a> AssetFileHandle<'a> {
             .context("failed writing asset to fs")?;
 
         if let Some(ns_path) = &self.ns_path {
-            fs::write(ns_path, self.asset.asset_id.to_hex())
+            fs::write(ns_path, self.asset.asset_id.to_string())
                 .context("failed writing asset map to fs")?;
         }
 

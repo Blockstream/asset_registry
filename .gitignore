@@ -2,3 +2,5 @@
 **/*.rs.bkdb
 /db
 keys
+.direnv/
+result
