@@ -3,8 +3,8 @@ use std::fmt;
 use bitcoin_hashes::hex::ToHex;
 use failure::ResultExt;
 use reqwest::blocking::get as reqwest_get;
+use reqwest::Url;
 use std::str;
-use trust_dns_resolver::Resolver;
 
 use crate::asset::{Asset, DomainVerificationMethod};
 use crate::errors::Result;
@@ -36,8 +36,6 @@ pub fn verify_asset_link(asset: &Asset) -> Result<()> {
         }
     }
 }
-
-
 
 fn verify_domain_link_http(asset: &Asset, domain: &str) -> Result<()> {
     // TODO tor proxy for accessing onion
@@ -90,29 +88,67 @@ fn verify_domain_link_http(asset: &Asset, domain: &str) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct TxtRecord {
+    name: String,
+    #[serde(rename = "type")]
+    dns_type: u32,
+    #[serde(rename = "TTL")]
+    ttl: u32,
+    data: String
+}
+
+fn build_google_dns_url(domain: &str) -> Result<Url> {
+    let mut url = Url::parse("https://dns.google/resolve?")?;
+    url.query_pairs_mut().append_pair("name", domain);
+    url.query_pairs_mut().append_pair("type", "TXT");
+    Ok(url)
+}
+
+fn txt_lookup(url: String) -> Result<Vec<TxtRecord>>{
+    let google_dns = build_google_dns_url(&url)?;
+
+    let response: serde_json::Value = reqwest_get(&google_dns.to_string())
+        .context(format!("failed fetching {}", google_dns))?
+        .error_for_status()?
+        .json()
+        .context("invalid page contents")?;
+
+    let txt_records: Vec<TxtRecord> = match response.get("Answer") {
+        Some(t) => serde_json::from_value(t.clone())?,
+        None => bail!("'Answer' missing from response.")
+    };
+
+    Ok(txt_records)
+}
+
 fn verify_domain_link_dns(asset: &Asset, domain: &str) -> Result<()> {
     let asset_id = asset.id().to_hex();
 
     let expected_body = format!(
         "liquid-asset-verification={},{}",
-        asset_id, asset.fields.ticker.clone().unwrap_or(String::from(""))
+        asset_id,
+        asset.fields.ticker.clone().unwrap_or(String::from(""))
     );
+
+    let labels = domain.split('.').collect::<Vec<&str>>();
+    ensure!(labels.len() > 1, "domain must have at least two labels");
+
+    let root_domain = labels[labels.len() - 2];
+    let tld = labels[labels.len() - 1];
+    let root_domain = format!("{}.{}", root_domain, tld);
 
     debug!(
         "verifying domain name {} using dns for {}: GET {}",
-        domain, asset_id, domain
+        root_domain, asset_id, root_domain
     );
 
-    let resolver = Resolver::default()?;
-    let txt_records = resolver.txt_lookup(domain)?;
+    let txt_records = txt_lookup(root_domain)?;
 
-    match txt_records.iter().any(|record| {
-        let raw_txt_data = record.txt_data();
-        match str::from_utf8(&raw_txt_data[0]) {
-            Ok(parsed_body) => parsed_body.trim_end() == expected_body,
-            Err(_) => false
-        }
-    }) {
+    match txt_records
+        .iter()
+        .any(|record| expected_body == record.data)
+    {
         true => {
             debug!(
                 "successfully verified domain name {} for {}: GET {}",
@@ -120,9 +156,12 @@ fn verify_domain_link_dns(asset: &Asset, domain: &str) -> Result<()> {
             );
 
             Ok(())
-        },
-        false => bail!("Failed to find a TXT record for asset {} at domain name {}",asset_id, &domain)
-        
+        }
+        false => bail!(
+            "failed to find a TXT record for asset {} at domain name {}",
+            asset_id,
+            &domain
+        ),
     }
 }
 
