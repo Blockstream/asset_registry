@@ -30,7 +30,6 @@ lazy_static = "1.4.0"
 idna = "0.2.0"
 regex = "1.1.6"
 structopt = { version = "0.3.12", optional = true }
-trust-dns-resolver = "0.20.3"
 
 [dev-dependencies]
 rocket = "0.4.4"

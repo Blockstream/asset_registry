@@ -64,7 +64,9 @@ pub struct AssetFields {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum DomainVerificationMethod {
+    #[serde(rename = "dns")]
     Dns,
+    #[serde(rename = "http")]
     Http
 }
 
