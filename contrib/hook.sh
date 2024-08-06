@@ -53,7 +53,7 @@ main() {
   cp $full_index_path $minimal_index_path $WWW_PATH/
 
   # Update tar.xz archive
-  tar cJf $archive_path _map ??/*.json
+  (echo _map && find . -path "./??/*.json" -print) | tar cJf "$archive_path" --files-from=-
 }
 
 index_add_asset() {
