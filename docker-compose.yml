@@ -12,7 +12,7 @@ services:
         - ${GPG_KEY_PATH:-./keys/signing-privkey.asc}:/app/signing-privkey.asc
         - ${SSH_KEY_PATH:-./keys/id_ed25519}:/root/.ssh/id_${SSH_KEY_CIPHER:-ed25519}
     nginx:
-        image: nginx:1.21
+        image: nginx:1.25.4
         environment:
         - NGINX_HOST=assets.blockstream.info
         expose: [ "80" ]

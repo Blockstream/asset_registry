@@ -69,10 +69,8 @@ $ liquid-asset-registry verify-asset "$(cat asset.json)"
 
 ## Testing
 
-Uses rocket for mock http servers, which requires nightly.
-
 ```
-$ cargo +nightly test --features 'cli server client'  -- --test-threads 1
+$ cargo test --features 'cli server client'  -- --test-threads 1
 ```
 
 ## Development

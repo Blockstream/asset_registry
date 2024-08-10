@@ -1,8 +1,7 @@
 use std::net;
 use std::path::PathBuf;
 
-use bitcoin_hashes::hex::FromHex;
-use elements::{issuance::ContractHash, AssetId};
+use elements::issuance::ContractHash;
 use hyper::rt::{Future, Stream};
 use hyper::service::service_fn;
 use hyper::{header, Body, Method, Request, Response, Server, StatusCode};
@@ -178,9 +177,7 @@ fn handle_req(
 }
 
 fn handle_get(asset_id: &str, registry: &Registry) -> Result<Resp> {
-    let asset_id = AssetId::from_hex(asset_id)?;
-
-    Ok(match registry.load(&asset_id)? {
+    Ok(match registry.load(&asset_id.parse()?)? {
         Some(asset) => Resp::json(StatusCode::OK, asset),
         None => Resp::plain(StatusCode::NOT_FOUND, "Not Found"),
     })
@@ -200,8 +197,7 @@ fn handle_update(body: hyper::Chunk, registry: &Registry) -> Result<Resp> {
 }
 
 fn handle_delete(asset_id: &str, body: hyper::Chunk, registry: &Registry) -> Result<Resp> {
-    let asset_id = AssetId::from_hex(asset_id)?;
-    let asset = match registry.load(&asset_id)? {
+    let asset = match registry.load(&asset_id.parse()?)? {
         None => return Ok(Resp::plain(StatusCode::NOT_FOUND, "Not found")),
         Some(asset) => asset,
     };
@@ -240,10 +236,10 @@ struct ValidationRequest {
 mod tests {
     use super::*;
     use crate::{asset::Asset, chain, client::Client, entity, errors::OptionExt};
-    use bitcoin::util::misc::signed_msg_hash;
+    use bitcoin::hashes::Hash;
+    use bitcoin::secp256k1::{self, Secp256k1};
+    use bitcoin::sign_message::signed_msg_hash;
     use bitcoin::PrivateKey;
-    use bitcoin_hashes::{hex::ToHex, Hash};
-    use secp256k1::Secp256k1;
     use std::{str::FromStr, thread, time::Duration};
 
     lazy_static! {
@@ -274,7 +270,6 @@ mod tests {
 
         entity::tests::spawn_mock_verifier_server();
         chain::tests::spawn_mock_esplora_server();
-
         spawn_test_server();
 
         thread::sleep(Duration::from_millis(250));
@@ -302,13 +297,15 @@ mod tests {
         // Delete
         let msg_to_sign = format!("remove {} from registry", asset.asset_id);
         let msg_hash = signed_msg_hash(&msg_to_sign);
-        let msg_secp = secp256k1::Message::from_slice(&msg_hash.into_inner())?;
-        let signature = EC.sign(&msg_secp, &ISSUER_KEY.key).serialize_compact();
+        let msg_secp = secp256k1::Message::from_digest(msg_hash.to_byte_array());
+        let signature = EC
+            .sign_ecdsa(&msg_secp, &ISSUER_KEY.inner)
+            .serialize_compact();
 
         CLIENT.delete(&asset.asset_id, &signature)?;
 
         ensure!(CLIENT.get(&asset.asset_id)?.is_none());
-        info!("asset deleted succesfully");
+        info!("asset deleted successfully");
 
         // re-register for followup tests
         CLIENT.register(&asset_req)?;
@@ -355,7 +352,7 @@ mod tests {
     #[test]
     fn test4_get() -> Result<()> {
         let asset_id =
-            AssetId::from_hex("b1405e4eefa91c6690198b4f85d73e8e0babee08f73b2c8af411486dc28dbc05")?;
+            "b1405e4eefa91c6690198b4f85d73e8e0babee08f73b2c8af411486dc28dbc05".parse()?;
 
         let asset: Asset = CLIENT
             .get(&asset_id)?
@@ -364,7 +361,7 @@ mod tests {
         debug!("asset: {:?}", asset);
 
         assert_eq!(
-            asset.id().to_hex(),
+            asset.id().to_string(),
             "b1405e4eefa91c6690198b4f85d73e8e0babee08f73b2c8af411486dc28dbc05",
         );
         assert_eq!(asset.name(), "PPP coin");
