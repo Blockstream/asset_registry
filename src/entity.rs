@@ -28,11 +28,14 @@ pub fn verify_asset_link(asset: &Asset) -> Result<()> {
     match asset.entity() {
         AssetEntity::DomainName(domain) => {
             verify_domain_name(domain).context("invalid domain name")?;
-            match asset.domain_verification_method.clone().unwrap_or(DomainVerificationMethod::Http) {
+            match asset
+                .domain_verification_method
+                .clone()
+                .unwrap_or(DomainVerificationMethod::Http)
+            {
                 DomainVerificationMethod::Http => verify_domain_link_http(asset, domain),
-                DomainVerificationMethod::Dns => verify_domain_link_dns(asset, domain)
+                DomainVerificationMethod::Dns => verify_domain_link_dns(asset, domain),
             }
-            
         }
     }
 }
@@ -88,16 +91,6 @@ fn verify_domain_link_http(asset: &Asset, domain: &str) -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct TxtRecord {
-    name: String,
-    #[serde(rename = "type")]
-    dns_type: u32,
-    #[serde(rename = "TTL")]
-    ttl: u32,
-    data: String
-}
-
 fn build_google_dns_url(domain: &str) -> Result<Url> {
     let mut url = Url::parse("https://dns.google/resolve?")?;
     url.query_pairs_mut().append_pair("name", domain);
@@ -105,7 +98,7 @@ fn build_google_dns_url(domain: &str) -> Result<Url> {
     Ok(url)
 }
 
-fn txt_lookup(url: String) -> Result<Vec<TxtRecord>>{
+fn txt_lookup(url: &str) -> Result<Vec<String>> {
     let google_dns = build_google_dns_url(&url)?;
 
     let response: serde_json::Value = reqwest_get(&google_dns.to_string())
@@ -114,12 +107,17 @@ fn txt_lookup(url: String) -> Result<Vec<TxtRecord>>{
         .json()
         .context("invalid page contents")?;
 
-    let txt_records: Vec<TxtRecord> = match response.get("Answer") {
-        Some(t) => serde_json::from_value(t.clone())?,
-        None => bail!("'Answer' missing from response.")
-    };
+    let txt_records: Vec<serde_json::Value> = serde_json::from_value(response["Answer"].clone())?;
+    let txt_data: Vec<String> = txt_records
+        .iter()
+        .filter_map(|r| {
+            r.get("data")
+                .and_then(|data| data.as_str())
+                .map(String::from)
+        })
+        .collect();
 
-    Ok(txt_records)
+    Ok(txt_data)
 }
 
 fn verify_domain_link_dns(asset: &Asset, domain: &str) -> Result<()> {
@@ -131,38 +129,22 @@ fn verify_domain_link_dns(asset: &Asset, domain: &str) -> Result<()> {
         asset.fields.ticker.clone().unwrap_or(String::from(""))
     );
 
-    let labels = domain.split('.').collect::<Vec<&str>>();
-    ensure!(labels.len() > 1, "domain must have at least two labels");
+    let txt_data = txt_lookup(domain)?;
 
-    let root_domain = labels[labels.len() - 2];
-    let tld = labels[labels.len() - 1];
-    let root_domain = format!("{}.{}", root_domain, tld);
+    if txt_data.iter().any(|record| &expected_body == record) {
+        debug!(
+            "successfully verified domain name {} for {}: GET {}",
+            domain, asset_id, &domain
+        );
 
-    debug!(
-        "verifying domain name {} using dns for {}: GET {}",
-        root_domain, asset_id, root_domain
-    );
-
-    let txt_records = txt_lookup(root_domain)?;
-
-    match txt_records
-        .iter()
-        .any(|record| expected_body == record.data)
-    {
-        true => {
-            debug!(
-                "successfully verified domain name {} for {}: GET {}",
-                domain, asset_id, &domain
-            );
-
-            Ok(())
-        }
-        false => bail!(
-            "failed to find a TXT record for asset {} at domain name {}",
-            asset_id,
-            &domain
-        ),
+        return Ok(());
     }
+
+    bail!(
+        "failed to find a TXT record for asset {} at domain name {}",
+        asset_id,
+        &domain
+    )
 }
 
 // needs to be run with --test-threads 1
