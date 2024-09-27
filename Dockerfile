@@ -1,4 +1,4 @@
-FROM rust:1.60 AS builder
+FROM rust:1.53 AS builder
 WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 COPY src src
