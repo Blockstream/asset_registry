@@ -78,6 +78,13 @@ pub struct Config {
 
 //type ResponseFuture = Box<Future<Item = Response<Body>, Error = hyper::Error> + Send>;
 
+fn add_cors_headers(builder: &mut hyper::http::response::Builder) {
+    builder
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, DELETE")
+        .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type");
+}
+
 pub fn start_server(config: Config) -> Result<()> {
     info!("Web server config: {:?}", config);
 
@@ -102,7 +109,13 @@ pub fn start_server(config: Config) -> Result<()> {
                     Ok(resp) => {
                         info!("replying with {:?}", resp);
 
-                        Response::builder()
+                        let mut builder = Response::builder();
+
+                        if add_cors {
+                            add_cors_headers(&mut builder);
+                        }
+
+                        builder
                             .status(resp.status())
                             .header(header::CONTENT_TYPE, resp.content_type())
                             .body(resp.body())
@@ -117,7 +130,13 @@ pub fn start_server(config: Config) -> Result<()> {
                         #[cfg(feature = "dev")]
                         let body = format!("{:#?}", err);
 
-                        Response::builder()
+                        let mut builder = Response::builder();
+
+                        if add_cors {
+                            add_cors_headers(&mut builder);
+                        }
+
+                        builder
                             .status(StatusCode::BAD_REQUEST)
                             .body(Body::from(body))
                             .unwrap()
