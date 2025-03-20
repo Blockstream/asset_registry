@@ -64,6 +64,16 @@ pub struct Config {
         )
     )]
     esplora_url: String,
+
+    #[cfg_attr(
+        feature = "cli",
+        structopt(
+            long = "add-cors",
+            env,
+            help = "Add CORS headers to allow cross-origin requests"
+        )
+    )]
+    add_cors: bool,
 }
 
 //type ResponseFuture = Box<Future<Item = Response<Body>, Error = hyper::Error> + Send>;
@@ -75,6 +85,7 @@ pub fn start_server(config: Config) -> Result<()> {
 
     let chain = ChainQuery::new(config.esplora_url);
     let registry = Arc::new(Registry::new(&config.db_path, chain, config.hook_cmd));
+    let add_cors = config.add_cors;
 
     let make_service = move || {
         let registry = Arc::clone(&registry);
@@ -257,6 +268,7 @@ mod tests {
             esplora_url: "http://localhost:58713".to_string(),
             db_path: std::env::temp_dir()
                 .join(format!("asset-registry-testdb-{}", std::process::id())),
+            add_cors: false,
         };
 
         std::fs::create_dir_all(&config.db_path).unwrap();
