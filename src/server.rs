@@ -69,7 +69,6 @@ pub struct Config {
         feature = "cli",
         structopt(
             long = "add-cors",
-            env,
             help = "Add CORS headers to allow cross-origin requests"
         )
     )]
