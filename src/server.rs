@@ -80,8 +80,15 @@ pub struct Config {
 fn add_cors_headers(builder: &mut hyper::http::response::Builder) {
     builder
         .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-        .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, DELETE")
-        .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type");
+        .header(
+            header::ACCESS_CONTROL_ALLOW_METHODS,
+            "GET, POST, DELETE, OPTIONS",
+        )
+        .header(
+            header::ACCESS_CONTROL_ALLOW_HEADERS,
+            "Content-Type, Authorization",
+        )
+        .header(header::ACCESS_CONTROL_MAX_AGE, "86400"); // Cache preflight for 24 hours
 }
 
 pub fn start_server(config: Config) -> Result<()> {
@@ -196,6 +203,7 @@ fn handle_req(
     registry: &Registry,
 ) -> Result<Resp> {
     match (method, uri.path()) {
+        (Method::OPTIONS, _) => Ok(Resp::plain(StatusCode::NO_CONTENT, "")),
         (Method::POST, "/") => handle_update(body, registry),
         (Method::GET, path) => handle_get(&path[1..], registry),
         (Method::DELETE, path) => handle_delete(&path[1..], body, registry),
