@@ -34,31 +34,47 @@ if [ ! -f $WWW_PATH/index.tar.xz ]; then
 
   # Group assets by first two chars of asset_id
   #  and create an index.json in a subdir to be served by nginx; loop should be idempotent
+  echo "Generating subdirectory indices..."
   for dir in $DB_PATH/??/; do
-    subpath=$(echo $dir | cut -d/ -f4)
-    www_subpath=$WWW_PATH/$subpath
-    www_subpath_index=$www_subpath/index.json
+    # Ensure trailing slash for consistent prefix removal later
+    dir=${dir%/}/ 
+    
+    subpath=$(basename "$dir") # Gets 'ab', 'cd', etc.
+    www_subpath="$WWW_PATH/$subpath"
+    www_subpath_index="$www_subpath/index.json"
 
-    # if subpath/index.json doesn't exist yet or its empty,
-    #  create it along with the prefix subdir (should happen only once)
-    [ -s $www_subpath_index ] || { mkdir -p $www_subpath; echo -e "{\n}" > $www_subpath_index; }
+    # Ensure the target directory exists
+    mkdir -p "$www_subpath"
 
-    # create subpath/index.json
-    for file in $dir*.json; do
-      asset_id=$(basename $file .json)
-      json_full="$(cat $file)"
-      jq -c ".["\""$asset_id"\""]=$json_full" $www_subpath_index > $www_subpath_index.new
-      mv $www_subpath_index.new $www_subpath_index
-    done
+    # Use an array and nullglob to safely find JSON files
+    shopt -s nullglob 
+    json_files=("$dir"*.json)
+    shopt -u nullglob 
+
+    if [ ${#json_files[@]} -gt 0 ]; then
+      echo "  Generating index for $subpath..."
+      # Generate the index for this subpath in one go using reduce and inputs
+      jq -nc --arg prefix "$dir" 'reduce inputs as $obj ({}; .[input_filename | sub($prefix; "") | sub(".json$"; "")] = $obj)' "${json_files[@]}" > "$www_subpath_index.new"
+
+      if [ $? -eq 0 ]; then
+        mv "$www_subpath_index.new" "$www_subpath_index"
+      else
+        echo "  ERROR: jq failed to generate index for $subpath" >&2
+        rm -f "$www_subpath_index.new" # Clean up
+        # Consider adding 'exit 1' here if this failure is critical
+      fi
+    else
+      # No JSON files found, create an empty index for consistency
+      echo "  No JSON files found in $dir, creating empty index for $subpath."
+      echo "{}" > "$www_subpath_index"
+    fi
   done
-
-  # Symlink icons map
-  ln -fs $DB_PATH/icons.json $WWW_PATH/
+  echo "Subdirectory index generation complete."
 
   # Copy JSON asset index maps into the public www dir
   # These files are overwriten with the updated maps following a successful db update
   # rather than being symlinked.
-  cp $DB_PATH/index.json $DB_PATH/index.minimal.json $WWW_PATH/
+  cp -f $DB_PATH/index.json $DB_PATH/index.minimal.json $WWW_PATH/ || true
 
   # Make a tarball with the entire db available in the public www dir
   find $DB_PATH -mindepth 2 -maxdepth 2 -name '*.json' -print0 | 
