@@ -71,10 +71,13 @@ if [ ! -f $WWW_PATH/index.tar.xz ]; then
   done
   echo "Subdirectory index generation complete."
 
+  # Symlink icons map
+  ln -fs $DB_PATH/icons.json $WWW_PATH/
+
   # Copy JSON asset index maps into the public www dir
   # These files are overwriten with the updated maps following a successful db update
   # rather than being symlinked.
-  cp -f $DB_PATH/index.json $DB_PATH/index.minimal.json $WWW_PATH/ || true
+  cp $DB_PATH/index.json $DB_PATH/index.minimal.json $WWW_PATH/
 
   # Make a tarball with the entire db available in the public www dir
   find $DB_PATH -mindepth 2 -maxdepth 2 -name '*.json' -print0 | 
